@@ -13,7 +13,11 @@
 # limitations under the License.
 
 
+import os
+from typing import List
+
 import keras
+import keras.optimizers
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -36,20 +40,17 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from ..common import DICT_LABELS
+from ..common import abs_limit_10000 as abs_limit
+from ..common import load_test, load_train, to_string_list
+
 # define network parameters
-max_features = 256
-maxlen = 256
+MAX_FEATURES = 256
+MAXLEN = 256
 
 
-def abs_limit(x):
-    if abs(x) > 10000:
-        return 10000 * np.sign(x)
-    return x
-
-
-def prepare_data(data, y):
-
-    df = data[
+def prepare_data(df: pd.DataFrame, y: pd.DataFrame):
+    df = df[
         [
             'total_vals',
             'num_nans',
@@ -96,15 +97,19 @@ def prepare_data(data, y):
         }
     )
 
-    df['scaled_mean'] = df['scaled_mean'].apply(abs_limit)
-    df['scaled_std_dev'] = df['scaled_std_dev'].apply(abs_limit)
-    df['scaled_min'] = df['scaled_min'].apply(abs_limit)
-    df['scaled_max'] = df['scaled_max'].apply(abs_limit)
-    df['total_vals'] = df['total_vals'].apply(abs_limit)
-    df['num_nans'] = df['num_nans'].apply(abs_limit)
-    df['num_of_dist_val'] = df['num_of_dist_val'].apply(abs_limit)
+    cols_to_abs_limit = [
+        'scaled_mean',
+        'scaled_std_dev',
+        'scaled_min',
+        'scaled_max',
+        'total_vals',
+        'num_nans',
+        'num_of_dist_val',
+    ]
+    for col in cols_to_abs_limit:
+        df[col] = df[col].apply(abs_limit)
 
-    column_names_to_normalize = [
+    cols_to_normalize = [
         'total_vals',
         'num_nans',
         'num_of_dist_val',
@@ -113,21 +118,23 @@ def prepare_data(data, y):
         'scaled_min',
         'scaled_max',
     ]
-    x = df[column_names_to_normalize].values
-    x = np.nan_to_num(x)
-    x_scaled = StandardScaler().fit_transform(x)
-    df_temp = pd.DataFrame(
-        x_scaled, columns=column_names_to_normalize, index=df.index
+    X = df[cols_to_normalize].values
+    X = np.nan_to_num(X)
+    X_scaled = StandardScaler().fit_transform(X)
+    df[cols_to_normalize] = pd.DataFrame(
+        X_scaled,
+        columns=cols_to_normalize,
+        index=df.index,
     )
-    df[column_names_to_normalize] = df_temp
 
-    y.y_act = y.y_act.astype(float)
-    return df
+    y['y_act'] = y['y_act'].map(DICT_LABELS).astype(float)
+
+    return df, y
 
 
 # %%
-X_train = pd.read_csv('../../Benchmark-Labeled-Data/data_train.csv')
-X_test = pd.read_csv('../../Benchmark-Labeled-Data/data_test.csv')
+X_train = load_train()
+X_test = load_test()
 
 # for i in range(0,1000,10):
 X_train = X_train.sample(frac=1, random_state=100).reset_index(drop=True)
@@ -144,38 +151,13 @@ y_train = X_train.loc[:, ['y_act']]
 y_test = X_test.loc[:, ['y_act']]
 
 
-dict_label = {
-    'numeric': 0,
-    'categorical': 1,
-    'datetime': 2,
-    'sentence': 3,
-    'url': 4,
-    'embedded-number': 5,
-    'list': 6,
-    'not-generalizable': 7,
-    'context-specific': 8,
-}
-
-y_train['y_act'] = [dict_label[i] for i in y_train['y_act']]
-y_test['y_act'] = [dict_label[i] for i in y_test['y_act']]
-y_train
-
-
-X_train = prepare_data(X_train, y_train)
-X_test = prepare_data(X_test, y_test)
-
-
-# X_train = func2(xtrain,xtrain1,1)
-# X_test = func2(xtest,xtest1,0)
-# print(atr_train)
-print(atr_train['Attribute_name'].values)
+X_train, y_train = prepare_data(X_train, y_train)
+X_test, y_test = prepare_data(X_test, y_test)
 
 X_train.reset_index(inplace=True, drop=True)
 y_train.reset_index(inplace=True, drop=True)
 X_test.reset_index(inplace=True, drop=True)
 y_test.reset_index(inplace=True, drop=True)
-# atr_train.reset_index(inplace=True,drop=True)
-# atr_test.reset_index(inplace=True,drop=True)
 
 
 X_train = X_train.values
@@ -185,57 +167,35 @@ X_test = X_test.values
 y_test = y_test.values
 
 
-# atr_train = atr_train.values
-# atr_test = atr_test.values
-
-
 structured_data_train = X_train
 structured_data_test = X_test
 
 
-list_sentences_train = atr_train['Attribute_name'].values
-list_sentences_test = atr_test['Attribute_name'].values
-
-list_sentences_train1 = samp_train['sample_1'].values
-list_sentences_test1 = samp_test['sample_1'].values
-
-
-print(list_sentences_train)
-
-for i in range(len(list_sentences_train)):
-    list_sentences_train[i] = str(list_sentences_train[i])
-for i in range(len(list_sentences_test)):
-    list_sentences_test[i] = str(list_sentences_test[i])
+def to_padded_sequences(tokenizer: keras_text.Tokenizer, texts: List[str]):
+    return keras_seq.pad_sequences(
+        tokenizer.texts_to_sequences(texts), maxlen=MAXLEN
+    )
 
 
-for i in range(len(list_sentences_train1)):
-    list_sentences_train1[i] = str(list_sentences_train1[i])
-for i in range(len(list_sentences_test1)):
-    list_sentences_test1[i] = str(list_sentences_test1[i])
+sentences_train = to_string_list(atr_train['Attribute_name'].values)
+sentences_test = to_string_list(atr_test['Attribute_name'].values)
 
-print(list_sentences_train)
-
+sample_sentences_train = to_string_list(samp_train['sample_1'].values)
+sample_sentences_test = to_string_list(samp_test['sample_1'].values)
 
 tokenizer = keras_text.Tokenizer(char_level=True)
-tokenizer.fit_on_texts(list(list_sentences_train))
+tokenizer.fit_on_texts(list(sentences_train))
 
-
-tokenizer1 = keras_text.Tokenizer(char_level=True)
-tokenizer1.fit_on_texts(list(list_sentences_train1))
+tokenizer_sample = keras_text.Tokenizer(char_level=True)
+tokenizer_sample.fit_on_texts(list(sample_sentences_train))
 
 # train data
-list_tokenized_train = tokenizer.texts_to_sequences(list_sentences_train)
-X_t = keras_seq.pad_sequences(list_tokenized_train, maxlen=maxlen)
-
-list_tokenized_train1 = tokenizer.texts_to_sequences(list_sentences_train1)
-X_t1 = keras_seq.pad_sequences(list_tokenized_train1, maxlen=maxlen)
+X_train = to_padded_sequences(tokenizer, sentences_train)
+X_sample_train = to_padded_sequences(tokenizer, sample_sentences_train)
 
 # test data
-list_tokenized_test = tokenizer.texts_to_sequences(list_sentences_test)
-X_te = keras_seq.pad_sequences(list_tokenized_test, maxlen=maxlen)
-
-list_tokenized_test1 = tokenizer.texts_to_sequences(list_sentences_test1)
-X_te1 = keras_seq.pad_sequences(list_tokenized_test1, maxlen=maxlen)
+X_test = to_padded_sequences(tokenizer_sample, sentences_test)
+X_sample_test = to_padded_sequences(tokenizer_sample, sample_sentences_test)
 
 
 # %%
@@ -244,10 +204,8 @@ def build_model(neurons, numfilters, embed_size):
     x = Embedding(
         input_dim=len(tokenizer.word_counts) + 1, output_dim=embed_size
     )(inp)
-    #     prefilt_x = Dropout(0.5)(x)
     out_conv = []
 
-    #     x = prefilt_x
     for i in range(2):
         x = Conv1D(
             numfilters,
@@ -257,9 +215,7 @@ def build_model(neurons, numfilters, embed_size):
         )(x)
         numfilters = numfilters * 2
 
-    #     out_conv += [Dropout(0.5)(GlobalMaxPool1D()(x))]
     out_conv += [(GlobalMaxPool1D()(x))]
-    #     xy = Flatten()(out_conv)
     out_conv += [GlobalMaxPool1D()(x)]
     x += [GlobalMaxPool1D()(x)]
     xy = concatenate(out_conv, axis=-1)
@@ -270,7 +226,7 @@ def build_model(neurons, numfilters, embed_size):
     )(inp1)
     out_conv = []
 
-    for i in range(2):
+    for _ in range(2):
         x = Conv1D(
             numfilters,
             kernel_size=3,
@@ -285,18 +241,13 @@ def build_model(neurons, numfilters, embed_size):
     xy1 = concatenate(out_conv, axis=-1)
 
     Str_input = Input(shape=(19,))
-    layersfin = keras.layers.concatenate([xy, xy1, Str_input])
+    layersfin = concatenate([xy, xy1, Str_input])
     x = BatchNormalization()(layersfin)
-    #     x = Dense(1000, activation='tanh',kernel_initializer='glorot_uniform')(Str_input)
 
     x = Dense(neurons, activation='tanh')(x)
     x = Dropout(0.5)(x)
-    #     x = Dense(500, activation='tanh')(x)
-    #     x = Dense(neurons, activation='relu')(x)
     x = Dense(neurons, activation='relu')(x)
     x = Dropout(0.5)(x)
-    #     x = Dense(1000, activation='relu',kernel_initializer='random_normal')(x)
-    #     x = Dense(1000, activation='tanh')(x)
     x = Dense(9, activation='softmax')(x)
     model = Model(inputs=[inp, inp1, Str_input], outputs=[x])
     opt = keras.optimizers.Adam(learning_rate=3e-3)
@@ -312,8 +263,8 @@ model.summary()
 
 
 # %%
-print(X_t)
-print(X_t.shape)
+print(X_train)
+print(X_train.shape)
 # print(y_train[1851:])
 print(len(y_train))
 print(structured_data_train)
@@ -322,25 +273,26 @@ y_train = y_train.values
 structured_data_train = structured_data_train.values
 
 # %%
-batch_size = 128
-epochs = 25
+BATCH_SIZE = 128
+EPOCHS = os.getenv('EPOCHS', 25)
 
-k = 5
-kf = KFold(n_splits=k)
+K = 5
+kf = KFold(n_splits=K)
 
-neurons = [100, 500, 1000]
-n_filters_grid = [32, 64, 128]
-embed_size = [64, 128, 256]
+NEURONS = [100, 500, 1000]
+N_FILTERS_GRID = [32, 64, 128]
+EMBED_SIZE = [64, 128, 256]
 
+history = None
+best_model = None
 
 models = []
 
 avgsc_lst, avgsc_val_lst, avgsc_train_lst = [], [], []
-avgsc, avgsc_val, avgsc_train = 0, 0, 0
+avgsc = avgsc_val = avgsc_train = 0
 i = 0
-for train_index, test_index in kf.split(X_t):
-    #     if i==1: break
-    file_path = 'CNN_best_model' + str(i) + '.h5'
+for train_index, test_index in kf.split(X_train):
+    file_path = 'CNN_best_model%d.h5' % i
 
     checkpoint = ModelCheckpoint(
         file_path,
@@ -352,9 +304,11 @@ for train_index, test_index in kf.split(X_t):
 
     callbacks_list = [checkpoint]  # early
 
-    #     print('\n')
-    X_train_cur, X_test_cur = X_t[train_index], X_t[test_index]
-    X_train_cur1, X_test_cur1 = X_t1[train_index], X_t1[test_index]
+    X_train_cur, X_test_cur = X_train[train_index], X_train[test_index]
+    X_train_cur1, X_test_cur1 = (
+        X_sample_train[train_index],
+        X_sample_train[test_index],
+    )
     y_train_cur, y_test_cur = y_train[train_index], y_train[test_index]
     structured_data_train_cur, structured_data_test_cur = (
         structured_data_train[train_index],
@@ -369,9 +323,9 @@ for train_index, test_index in kf.split(X_t):
     )
 
     bestscore = 0
-    for neuro in neurons:
-        for ne in n_filters_grid:
-            for md in embed_size:
+    for neuro in NEURONS:
+        for ne in N_FILTERS_GRID:
+            for md in EMBED_SIZE:
                 print('\n-------------\n')
                 print('Neurons:' + str(neuro))
                 print(
@@ -385,46 +339,45 @@ for train_index, test_index in kf.split(X_t):
                         [X_test_cur, X_test_cur1, structured_data_test_cur],
                         to_categorical(y_test_cur),
                     ),
-                    batch_size=batch_size,
-                    epochs=epochs,
+                    batch_size=BATCH_SIZE,
+                    epochs=EPOCHS,
                     shuffle=True,
                     callbacks=callbacks_list,
                 )
 
-                bestPerformingModel = load_model(
-                    'CNN_best_model' + str(i) + '.h5'
-                )
+                best_model = load_model('CNN_best_model' + str(i) + '.h5')
 
-                loss, bscr_train = bestPerformingModel.evaluate(
+                loss, bscr_train = best_model.evaluate(
                     [X_train_cur, X_train_cur1, structured_data_train_cur],
                     to_categorical(y_train_cur),
                 )
                 print(loss, bscr_train)
-                loss, bscr_val = bestPerformingModel.evaluate(
+                loss, bscr_val = best_model.evaluate(
                     [X_test_cur, X_test_cur1, structured_data_test_cur],
                     to_categorical(y_test_cur),
                 )
                 print(loss, bscr_val)
-                loss, bscr = bestPerformingModel.evaluate(
-                    [X_te, X_te1, structured_data_test], to_categorical(y_test)
+                loss, bscr = best_model.evaluate(
+                    [X_test, X_sample_test, structured_data_test],
+                    to_categorical(y_test),
                 )
                 print(loss, bscr)
                 print('\n-------------\n')
 
-    bestPerformingModel = load_model('CNN_best_model' + str(i) + '.h5')
+    best_model = load_model('CNN_best_model' + str(i) + '.h5')
 
-    loss, bscr_train = bestPerformingModel.evaluate(
+    loss, bscr_train = best_model.evaluate(
         [X_train_cur, X_train_cur1, structured_data_train_cur],
         to_categorical(y_train_cur),
     )
     print(loss, bscr_train)
-    loss, bscr_val = bestPerformingModel.evaluate(
+    loss, bscr_val = best_model.evaluate(
         [X_test_cur, X_test_cur1, structured_data_test_cur],
         to_categorical(y_test_cur),
     )
     print(loss, bscr_val)
-    loss, bscr = bestPerformingModel.evaluate(
-        [X_te, X_te1, structured_data_test], to_categorical(y_test)
+    loss, bscr = best_model.evaluate(
+        [X_test, X_sample_test, structured_data_test], to_categorical(y_test)
     )
     print(loss, bscr)
 
@@ -475,9 +428,12 @@ kf = KFold(n_splits=5)
 avgsc_lst, avgsc_val_lst, avgsc_train_lst = [], [], []
 
 i = 0
-for train_index, test_index in kf.split(X_t):
-    X_train_cur, X_test_cur = X_t[train_index], X_t[test_index]
-    X_train_cur1, X_test_cur1 = X_t1[train_index], X_t1[test_index]
+for train_index, test_index in kf.split(X_train):
+    X_train_cur, X_test_cur = X_train[train_index], X_train[test_index]
+    X_train_cur1, X_test_cur1 = (
+        X_sample_train[train_index],
+        X_sample_train[test_index],
+    )
     y_train_cur, y_test_cur = y_train[train_index], y_train[test_index]
     print(len(X_train_cur), len(X_test_cur))
     print(len(y_train_cur), len(y_test_cur))
@@ -486,22 +442,22 @@ for train_index, test_index in kf.split(X_t):
         structured_data_train[test_index],
     )
     #     print(len(structured_data_train_cur),len(structured_data_test_cur))
-    print(len(X_te), len(y_test))
+    print(len(X_test), len(y_test))
 
-    bestPerformingModel = load_model('CNN_best_model' + str(i) + '.h5')
+    best_model = load_model('CNN_best_model' + str(i) + '.h5')
 
-    loss, bscr_train = bestPerformingModel.evaluate(
+    loss, bscr_train = best_model.evaluate(
         [X_train_cur, X_train_cur1, structured_data_train_cur],
         to_categorical(y_train_cur),
     )
     print(loss, bscr_train)
-    loss, bscr_val = bestPerformingModel.evaluate(
+    loss, bscr_val = best_model.evaluate(
         [X_test_cur, X_test_cur1, structured_data_test_cur],
         to_categorical(y_test_cur),
     )
     print(loss, bscr_val)
-    loss, bscr = bestPerformingModel.evaluate(
-        [X_te, X_te1, structured_data_test], to_categorical(y_test)
+    loss, bscr = best_model.evaluate(
+        [X_test, X_sample_test, structured_data_test], to_categorical(y_test)
     )
     print(loss, bscr)
 
@@ -523,7 +479,7 @@ print(np.mean(avgsc_train_lst))
 print(np.mean(avgsc_val_lst))
 print(np.mean(avgsc_lst))
 
-y_pred = bestPerformingModel.predict([X_te, X_te1, structured_data_test])
+y_pred = best_model.predict([X_test, X_sample_test, structured_data_test])
 y_pred1 = [np.argmax(i) for i in y_pred]
 cm = confusion_matrix(y_test, y_pred1)
 print('Confusion Matrix: Actual (Row) vs Predicted (Column)')

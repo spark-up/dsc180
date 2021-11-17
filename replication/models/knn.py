@@ -19,131 +19,33 @@ from scipy import stats
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import KFold
 from sklearn.neighbors import DistanceMetric
-from sklearn.preprocessing import StandardScaler
+
+from ..common import abs_limit_1000, load_test, load_train, prepare_data
 
 # %%
-xtrain = pd.read_csv('../../Benchmark-Labeled-Data/data_train.csv')
-xtest = pd.read_csv('../../Benchmark-Labeled-Data/data_test.csv')
+X_train = load_train()
+X_test = load_test()
 
 
-xtrain = xtrain.sample(frac=1, random_state=100).reset_index(drop=True)
-print(len(xtrain))
+X_train = X_train.sample(frac=1, random_state=100).reset_index(drop=True)
+print(len(X_train))
 
-y_train = xtrain.loc[:, ['y_act']]
-y_test = xtest.loc[:, ['y_act']]
+y_train = X_train.loc[:, ['y_act']]
+y_test = X_test.loc[:, ['y_act']]
 
-atr_train = xtrain.loc[:, ['Attribute_name']]
-atr_test = xtest.loc[:, ['Attribute_name']]
+atr_train = X_train.loc[:, ['Attribute_name']]
+atr_test = X_test.loc[:, ['Attribute_name']]
 
 
 # %%
-dict_label = {
-    'numeric': 0,
-    'categorical': 1,
-    'datetime': 2,
-    'sentence': 3,
-    'url': 4,
-    'embedded-number': 5,
-    'list': 6,
-    'not-generalizable': 7,
-    'context-specific': 8,
-}
-
-y_train['y_act'] = [dict_label[i] for i in y_train['y_act']]
-y_test['y_act'] = [dict_label[i] for i in y_test['y_act']]
-y_train
-
-# %%
-def func1(data, y):
-
-    data1 = data[
-        [
-            'total_vals',
-            'num_nans',
-            '%_nans',
-            'num_of_dist_val',
-            '%_dist_val',
-            'mean',
-            'std_dev',
-            'min_val',
-            'max_val',
-            'has_delimiters',
-            'has_url',
-            'has_email',
-            'has_date',
-            'mean_word_count',
-            'std_dev_word_count',
-            'mean_stopword_total',
-            'stdev_stopword_total',
-            'mean_char_count',
-            'stdev_char_count',
-            'mean_whitespace_count',
-            'stdev_whitespace_count',
-            'mean_delim_count',
-            'stdev_delim_count',
-            'is_list',
-            'is_long_sentence',
-        ]
-    ]
-    data1 = data1.reset_index(drop=True)
-    data1 = data1.fillna(0)
-
-    def abs_limit(x):
-        if abs(x) > 1000:
-            return 1000 * np.sign(x)
-        return x
-
-    column_names_to_normalize = [
-        'total_vals',
-        'num_nans',
-        '%_nans',
-        'num_of_dist_val',
-        '%_dist_val',
-        'mean',
-        'std_dev',
-        'min_val',
-        'max_val',
-        'has_delimiters',
-        'has_url',
-        'has_email',
-        'has_date',
-        'mean_word_count',
-        'std_dev_word_count',
-        'mean_stopword_total',
-        'stdev_stopword_total',
-        'mean_char_count',
-        'stdev_char_count',
-        'mean_whitespace_count',
-        'stdev_whitespace_count',
-        'mean_delim_count',
-        'stdev_delim_count',
-        'is_list',
-        'is_long_sentence',
-    ]
-
-    for col in column_names_to_normalize:
-        data1[col] = data1[col].apply(abs_limit)
-
-    print(column_names_to_normalize)
-    x = data1[column_names_to_normalize].values
-    x = np.nan_to_num(x)
-    x_scaled = StandardScaler().fit_transform(x)
-    df_temp = pd.DataFrame(
-        x_scaled, columns=column_names_to_normalize, index=data1.index
-    )
-    data1[column_names_to_normalize] = df_temp
-
-    y.y_act = y.y_act.astype(float)
-
-    print(f"> Data mean: {data1.mean()}\n")
-    print(f"> Data median: {data1.median()}\n")
-    print(f"> Data stdev: {data1.std()}")
-
-    return data1
 
 
-X_train = func1(xtrain, y_train)
-X_test = func1(xtest, y_test)
+X_train, y_train = prepare_data(
+    X_train, y_train, normalize=True, abs_limit=abs_limit_1000
+)
+X_test, y_test = prepare_data(
+    X_test, y_test, normalize=True, abs_limit=abs_limit_1000
+)
 
 # %%
 X_train.reset_index(inplace=True, drop=True)
@@ -164,12 +66,12 @@ atr_train = atr_train.values
 atr_test = atr_test.values
 
 # %%
-k = 5
-kf = KFold(n_splits=k)
-avg_train_acc, avg_test_acc = 0, 0
+K = 5
+kf = KFold(n_splits=K)
+avg_train_acc = avg_test_acc = 0
 
 avgsc_lst, avgsc_train_lst, avgsc_hld_lst = [], [], []
-avgsc, avgsc_train, avgsc_hld = 0, 0, 0
+avgsc = avgsc_train = avgsc_hld = 0
 
 acc_val_lst, acc_test_lst = [], []
 
