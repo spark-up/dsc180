@@ -14,7 +14,7 @@
 
 
 import os
-from typing import List
+from typing import List, Tuple
 
 import keras
 import keras.optimizers
@@ -42,7 +42,8 @@ from sklearn.preprocessing import StandardScaler
 
 from ..common import DICT_LABELS
 from ..common import abs_limit_10000 as abs_limit
-from ..common import load_test, load_train, to_string_list
+from ..common import to_string_list
+from ..resources import load_test, load_train
 
 # define network parameters
 MAX_FEATURES = 256
@@ -98,13 +99,13 @@ def prepare_data(df: pd.DataFrame, y: pd.DataFrame):
     )
 
     cols_to_abs_limit = [
-        'scaled_mean',
-        'scaled_std_dev',
-        'scaled_min',
-        'scaled_max',
-        'total_vals',
         'num_nans',
         'num_of_dist_val',
+        'scaled_max',
+        'scaled_mean',
+        'scaled_min',
+        'scaled_std_dev',
+        'total_vals',
     ]
     for col in cols_to_abs_limit:
         df[col] = df[col].apply(abs_limit)
@@ -133,8 +134,35 @@ def prepare_data(df: pd.DataFrame, y: pd.DataFrame):
 
 
 # %%
+
+
+def to_padded_sequences(tokenizer: keras_text.Tokenizer, texts: List[str]):
+    return keras_seq.pad_sequences(
+        tokenizer.texts_to_sequences(texts), maxlen=MAXLEN
+    )
+
+
 X_train = load_train()
 X_test = load_test()
+
+
+def process_data(
+    X_: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    atr: pd.Series[str] = X_['Attribute_name']
+    samp: pd.Series[str] = X_['sample_1']
+    y = X_[['y_act']]
+
+    X_, y = prepare_data(X_, y)
+    X_.reset_index(inplace=True, drop=True)
+    y.reset_index(inplace=True, drop=True)
+    structured_data = X_
+
+    sentences = to_string_list(atr.values)
+    sample_sentences = to_string_list(samp.values)
+
+    return X_, y
+
 
 # for i in range(0,1000,10):
 X_train = X_train.sample(frac=1, random_state=100).reset_index(drop=True)
@@ -169,12 +197,6 @@ y_test = y_test.values
 
 structured_data_train = X_train
 structured_data_test = X_test
-
-
-def to_padded_sequences(tokenizer: keras_text.Tokenizer, texts: List[str]):
-    return keras_seq.pad_sequences(
-        tokenizer.texts_to_sequences(texts), maxlen=MAXLEN
-    )
 
 
 sentences_train = to_string_list(atr_train['Attribute_name'].values)
@@ -263,12 +285,6 @@ model.summary()
 
 
 # %%
-print(X_train)
-print(X_train.shape)
-# print(y_train[1851:])
-print(len(y_train))
-print(structured_data_train)
-
 y_train = y_train.values
 structured_data_train = structured_data_train.values
 

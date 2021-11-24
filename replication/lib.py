@@ -411,11 +411,6 @@ def predict_cnn(df):
     names = featurized['Attribute_name'].values.astype(str)
     samples = featurized['sample_1'].values.astype(str)
 
-    # for i in range(len(names)):
-    #     names[i] = str(names[i])
-    # for i in range(len(samples)):
-    #     samples[i] = str(samples[i])
-
     X_names = keras_seq.pad_sequences(
         tokenizer.texts_to_sequences(names),
         maxlen=256,

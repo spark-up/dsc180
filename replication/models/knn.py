@@ -20,40 +20,36 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import KFold
 from sklearn.neighbors import DistanceMetric
 
-from ..common import abs_limit_1000, load_test, load_train, prepare_data
+from ..common import abs_limit_1000, process_stats, process_targets
+from ..resources import load_test, load_train
 
 # %%
 X_train = load_train()
 X_test = load_test()
 
-
 X_train = X_train.sample(frac=1, random_state=100).reset_index(drop=True)
-print(len(X_train))
 
-y_train = X_train.loc[:, ['y_act']]
-y_test = X_test.loc[:, ['y_act']]
+y_train = X_train[['y_act']].copy()
+y_test = X_test[['y_act']].copy()
 
-atr_train = X_train.loc[:, ['Attribute_name']]
-atr_test = X_test.loc[:, ['Attribute_name']]
+attr_train = X_train[['Attribute_name']].copy()
+attr_test = X_test[['Attribute_name']].copy()
 
 
 # %%
+X_train = process_stats(X_train, normalize=True, abs_limit=abs_limit_1000)
+y_train = process_targets(y_train)
 
-
-X_train, y_train = prepare_data(
-    X_train, y_train, normalize=True, abs_limit=abs_limit_1000
-)
-X_test, y_test = prepare_data(
-    X_test, y_test, normalize=True, abs_limit=abs_limit_1000
-)
+X_test = process_stats(X_test, normalize=True, abs_limit=abs_limit_1000)
+y_test = process_targets(y_test)
 
 # %%
 X_train.reset_index(inplace=True, drop=True)
 y_train.reset_index(inplace=True, drop=True)
 X_test.reset_index(inplace=True, drop=True)
 y_test.reset_index(inplace=True, drop=True)
-atr_train.reset_index(inplace=True, drop=True)
-atr_test.reset_index(inplace=True, drop=True)
+attr_train.reset_index(inplace=True, drop=True)
+attr_test.reset_index(inplace=True, drop=True)
 
 
 X_train = X_train.values
@@ -62,8 +58,8 @@ y_train = y_train.values
 X_test = X_test.values
 y_test = y_test.values
 
-atr_train = atr_train.values
-atr_test = atr_test.values
+attr_train = attr_train.values
+attr_test = attr_test.values
 
 # %%
 K = 5
@@ -84,7 +80,7 @@ for train_index, test_index in kf.split(X_train):
     y_train_cur, y_test_cur = y_train[train_index], y_train[test_index]
 
     print(y_train_cur)
-    atr_train_train, atr_val = atr_train[train_index], atr_train[test_index]
+    atr_train_train, atr_val = attr_train[train_index], attr_train[test_index]
 
     X_train_train = X_train_cur
     X_val = X_test_cur
@@ -157,7 +153,7 @@ for train_index, test_index in kf.split(X_train):
     ##################################
     X_train_train = X_train
     y_train_train = y_train
-    atr_train_train = atr_train
+    atr_train_train = attr_train
 
     Matrix = [
         [0 for x in range(len(X_train_train))] for y in range(len(X_test))
@@ -183,7 +179,7 @@ for train_index, test_index in kf.split(X_train):
     for i in range(len(X_test)):
         if i % 100 == 0:
             print(i)
-        a = atr_test[i]
+        a = attr_test[i]
         #         print(a)
         for j in range(len(X_train_train)):
             b = atr_train_train[j]
