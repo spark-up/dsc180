@@ -17,7 +17,6 @@ import re
 
 import numpy as np
 import pandas as pd
-from keras.preprocessing import sequence as keras_seq
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from pandas.api.types import is_numeric_dtype
@@ -148,10 +147,9 @@ def featurize_file(df):
         'sample_4',
         'sample_5',
     ]
-    golden_data = pd.DataFrame(columns=cols)
+    df = pd.DataFrame(columns=cols)
 
     for i in range(len(attribute_name)):
-        # print(attribute_name[i])
         val_append = []
         val_append.append(attribute_name[i])
         val_append.extend(stats[i])
@@ -160,27 +158,17 @@ def featurize_file(df):
         val_append.append(ratio_nans[i])
         val_append.extend(sample[i])
 
-        golden_data.loc[i] = val_append
-    #     print(golden_data)
+        df.loc[i] = val_append  # type: ignore
 
-    curdf = golden_data
+    for row in df.itertuples():
+        delim_cnt = url_cnt = email_cnt = date_cnt = 0
+        chars_totals = []
+        word_totals = []
+        stopwords = []
+        whitespaces = []
+        delims_count = []
 
-    for row in curdf.itertuples():
-
-        # print(row[11])
-        is_list = False
-        curlst = [row[11], row[12], row[13], row[14], row[15]]
-
-        delim_cnt, url_cnt, email_cnt, date_cnt = 0, 0, 0, 0
-        chars_totals, word_totals, stopwords, whitespaces, delims_count = (
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-
-        for value in curlst:
+        for value in row[11:16]:
             word_totals.append(len(str(value).split(' ')))
             chars_totals.append(len(str(value)))
             whitespaces.append(str(value).count(' '))
@@ -206,60 +194,56 @@ def featurize_file(df):
 
         # print(delim_cnt,url_cnt,email_cnt)
         if delim_cnt > 2:
-            curdf.at[row.Index, 'has_delimiters'] = True
+            df.at[row.Index, 'has_delimiters'] = True
         else:
-            curdf.at[row.Index, 'has_delimiters'] = False
+            df.at[row.Index, 'has_delimiters'] = False
 
         if url_cnt > 2:
-            curdf.at[row.Index, 'has_url'] = True
+            df.at[row.Index, 'has_url'] = True
         else:
-            curdf.at[row.Index, 'has_url'] = False
+            df.at[row.Index, 'has_url'] = False
 
         if email_cnt > 2:
-            curdf.at[row.Index, 'has_email'] = True
+            df.at[row.Index, 'has_email'] = True
         else:
-            curdf.at[row.Index, 'has_email'] = False
+            df.at[row.Index, 'has_email'] = False
 
         if date_cnt > 2:
-            curdf.at[row.Index, 'has_date'] = True
+            df.at[row.Index, 'has_date'] = True
         else:
-            curdf.at[row.Index, 'has_date'] = False
+            df.at[row.Index, 'has_date'] = False
 
-        curdf.at[row.Index, 'mean_word_count'] = np.mean(word_totals)
-        curdf.at[row.Index, 'std_dev_word_count'] = np.std(word_totals)
+        df.at[row.Index, 'mean_word_count'] = np.mean(word_totals)
+        df.at[row.Index, 'std_dev_word_count'] = np.std(word_totals)
 
-        curdf.at[row.Index, 'mean_stopword_total'] = np.mean(stopwords)
-        curdf.at[row.Index, 'stdev_stopword_total'] = np.std(stopwords)
+        df.at[row.Index, 'mean_stopword_total'] = np.mean(stopwords)
+        df.at[row.Index, 'stdev_stopword_total'] = np.std(stopwords)
 
-        curdf.at[row.Index, 'mean_char_count'] = np.mean(chars_totals)
-        curdf.at[row.Index, 'stdev_char_count'] = np.std(chars_totals)
+        df.at[row.Index, 'mean_char_count'] = np.mean(chars_totals)
+        df.at[row.Index, 'stdev_char_count'] = np.std(chars_totals)
 
-        curdf.at[row.Index, 'mean_whitespace_count'] = np.mean(whitespaces)
-        curdf.at[row.Index, 'stdev_whitespace_count'] = np.std(whitespaces)
+        df.at[row.Index, 'mean_whitespace_count'] = np.mean(whitespaces)
+        df.at[row.Index, 'stdev_whitespace_count'] = np.std(whitespaces)
 
-        curdf.at[row.Index, 'mean_delim_count'] = np.mean(whitespaces)
-        curdf.at[row.Index, 'stdev_delim_count'] = np.std(whitespaces)
+        df.at[row.Index, 'mean_delim_count'] = np.mean(whitespaces)
+        df.at[row.Index, 'stdev_delim_count'] = np.std(whitespaces)
 
         if (
-            curdf.at[row.Index, 'has_delimiters']
-            and curdf.at[row.Index, 'mean_char_count'] < 100
+            df.at[row.Index, 'has_delimiters']
+            and df.at[row.Index, 'mean_char_count'] < 100
         ):
-            curdf.at[row.Index, 'is_list'] = True
+            df.at[row.Index, 'is_list'] = True
         else:
-            curdf.at[row.Index, 'is_list'] = False
+            df.at[row.Index, 'is_list'] = False
 
-        if curdf.at[row.Index, 'mean_word_count'] > 10:
-            curdf.at[row.Index, 'is_long_sentence'] = True
+        if df.at[row.Index, 'mean_word_count'] > 10:
+            df.at[row.Index, 'is_long_sentence'] = True
         else:
-            curdf.at[row.Index, 'is_long_sentence'] = False
+            df.at[row.Index, 'is_long_sentence'] = False
 
-        # print(np.mean(stopwords))
+    df = df
 
-        # print('\n\n\n')
-
-    golden_data = curdf
-
-    return golden_data
+    return df
 
 
 def extract_features(df, use_samples=False):
@@ -400,6 +384,8 @@ def process_statistics(df: pd.DataFrame):
 
 
 def predict_cnn(df):
+    from keras.preprocessing import sequence as keras_seq
+
     cnn = load_cnn()
 
     featurized = featurize_file(df)
