@@ -9,6 +9,7 @@ calls. Although the return values may be mutable, doing so violates API safety.
 from __future__ import annotations
 
 import pickle
+import warnings
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, TypeVar
@@ -27,6 +28,14 @@ ROOT = Path(__file__).parent.parent
 ZOO_RESOURCES = ROOT / 'data' / 'zoo-resources'
 ZOO_DICTIONARIES = ZOO_RESOURCES / 'Dictionary'
 ZOO_BENCHMARK_DATA = ROOT / 'data' / 'zoo-benchmark'
+
+
+warnings.filterwarnings(
+    'ignore',
+    message='Trying to unpickle estimator',
+    category=UserWarning,
+    module='sklearn',
+)
 
 
 def load_train():
