@@ -1,8 +1,18 @@
-from typing import Any, Callable, List, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
-import numba
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import StandardScaler
 
@@ -18,25 +28,39 @@ DICT_LABELS = {
     'context-specific': 8,
 }
 
+
+class _NoopEstimator(BaseEstimator):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def fit_transform(self, X, y=None):
+        return y
+
+
+_NOOP_ESTIMATOR = _NoopEstimator()
+
 _Numeric = TypeVar('_Numeric', np.ndarray, pd.Series, int, float)
 
 
 def abs_limit_1000(x: _Numeric) -> _Numeric:
     if isinstance(x, (pd.Series, np.ndarray)):
-        x = x.copy()
-        x[x > 1000] = 1000 * np.sign(x[x > 1000])  # type: ignore
-    elif x > 1000:
-        x = 1000 * np.sign(x)  # type: ignore
-    return x
+        if x.dtype.kind == 'b':  # type: ignore
+            return x
+        if x.dtype.kind == 'u':  # type: ignore
+            return np.clip(x, 0, 1000)  # type: ignore
+    return np.clip(x, -1000, 1000)  # type: ignore
 
 
 def abs_limit_10000(x: _Numeric) -> _Numeric:
     if isinstance(x, (pd.Series, np.ndarray)):
-        x = x.copy()
-        x[x > 10000] = 10000 * np.sign(x[x > 10000])  # type: ignore
-    elif x > 10000:
-        x = 10000 * np.sign(x)  # type: ignore
-    return x
+        if x.dtype.kind == 'b':  # type: ignore
+            return x
+        if x.dtype.kind == 'u':  # type: ignore
+            return np.clip(x, 0, 10000)  # type: ignore
+    return np.clip(x, -10000, 10000)  # type: ignore
 
 
 def to_string_list(it: Any) -> List[str]:
@@ -102,12 +126,43 @@ def create_vectorizer() -> CountVectorizer:
     return CountVectorizer(ngram_range=(2, 2), analyzer='char')
 
 
+@overload
 def extract_features(
     df: pd.DataFrame,
     df_stats: pd.DataFrame,
     /,
     *,
     name_vectorizer: CountVectorizer,
+    fit=False,
+) -> pd.DataFrame:
+    ...
+
+
+@overload
+def extract_features(
+    df: pd.DataFrame,
+    df_stats: pd.DataFrame,
+    /,
+    *,
+    name_vectorizer: CountVectorizer,
+    sample_vectorizer: CountVectorizer,
+    samples: Literal[0, 1, 2] = 0,
+    fit=False,
+) -> pd.DataFrame:
+    ...
+
+
+def extract_features(
+    df: pd.DataFrame,
+    df_stats: pd.DataFrame,
+    /,
+    *,
+    name_vectorizer: CountVectorizer,
+    sample_vectorizer: Union[
+        CountVectorizer,
+        _NoopEstimator,
+    ] = _NOOP_ESTIMATOR,
+    samples=0,
     fit=False,
 ) -> pd.DataFrame:
     """
@@ -122,27 +177,35 @@ def extract_features(
 
     names = to_string_list(df['Attribute_name'].values)
 
-    # list_sample_1 = to_string_list(df['sample_1'].values)
-    # list_sample_2 = to_string_list(df['sample_2'].values)
-    # list_sample_3 = to_string_list(df['sample_3'].values)
+    use_sample_1 = samples >= 1
+    use_sample_2 = samples >= 2
+    list_sample_1 = df['sample_1'].astype(str) if use_sample_1 else None
+    list_sample_2 = df['sample_2'].astype(str) if use_sample_2 else None
+    # list_sample_3 = df['sample_3'].astype(str) if samples >= 3 else None
 
+    X1 = X2 = None
     if fit:
         X = name_vectorizer.fit_transform(names)
-        # X1 = vectorizer_sample.fit_transform(list_sample_1)
-        # X2 = vectorizer_sample.transform(list_sample_2)
+        if use_sample_1:
+            X1 = sample_vectorizer.fit_transform(list_sample_1)
+        if use_sample_2:
+            X2 = sample_vectorizer.transform(list_sample_2)
 
     else:
         X = name_vectorizer.transform(names)
-        # X1 = vectorizer_sample.transform(list_sample_1)
-        # X2 = vectorizer_sample.transform(list_sample_2)
+        if use_sample_1:
+            X1 = sample_vectorizer.transform(list_sample_1)
+        if use_sample_2:
+            X2 = sample_vectorizer.transform(list_sample_2)
 
     attr_df = pd.DataFrame(X.toarray())
-    # sample1_df = pd.DataFrame(X1.toarray())
-    # sample2_df = pd.DataFrame(X2.toarray())
+    sample1_df = pd.DataFrame(X1.toarray()) if use_sample_1 else None  # type: ignore
+    sample2_df = pd.DataFrame(X2.toarray()) if use_sample_2 else None  # type: ignore
 
-    # if use_sample_1:
-    #     out = sample1_df
-    # if use_sample_2:
-    #     out = sample2_df
+    out = [df_stats, attr_df]
+    if sample1_df is not None:
+        out.append(sample1_df)
+    if sample2_df is not None:
+        out.append(sample2_df)
 
-    return pd.concat([df_stats, attr_df], axis=1, sort=False)
+    return pd.concat(out, axis=1, sort=False)

@@ -23,12 +23,11 @@ from sklearn.model_selection import KFold, train_test_split
 
 from ..common import (
     abs_limit_10000,
-    load_test,
-    load_train,
+    extract_features,
     process_stats,
     process_targets,
-    to_string_list,
 )
+from ..resources import load_test, load_train
 
 # %%
 X_train = load_train()
@@ -38,53 +37,50 @@ X_test = load_test()
 X_train = X_train.sample(frac=1, random_state=100).reset_index(drop=True)
 print(len(X_train))
 
-y_train = X_train.loc[:, ['y_act']]
-y_test = X_test.loc[:, ['y_act']]
+y_train = X_train[['y_act']]
+y_test = X_test[['y_act']]
 
 # %%
-vectorizer_name = CountVectorizer(ngram_range=(2, 2), analyzer='char')
-vectorizer_sample = CountVectorizer(ngram_range=(2, 2), analyzer='char')
-
-
-def extract_features(df: pd.DataFrame, fit: bool):
-    names = to_string_list(df['Attribute_name'].values)
-    list_sample_1 = to_string_list(df['sample_1'].values)
-    list_sample_2 = to_string_list(df['sample_2'].values)
-
-    if fit:
-        X = vectorizer_name.fit_transform(names)
-        X1 = vectorizer_sample.fit_transform(list_sample_1)
-        X2 = vectorizer_sample.transform(list_sample_2)
-
-    else:
-        X = vectorizer_name.transform(names)
-        X1 = vectorizer_sample.transform(list_sample_1)
-        X2 = vectorizer_sample.transform(list_sample_2)
-
-    attr_df = pd.DataFrame(X.toarray())
-    sample1_df = pd.DataFrame(X1.toarray())
-    sample2_df = pd.DataFrame(X2.toarray())
-
-    df_out = pd.concat(
-        [df, attr_df, sample1_df, sample2_df], axis=1, sort=False
-    )
-    return df_out
+name_vectorizer = CountVectorizer(ngram_range=(2, 2), analyzer='char')
+sample_vectorizer = CountVectorizer(ngram_range=(2, 2), analyzer='char')
 
 
 # %%
-X_train = process_stats(X_train, normalize=True, abs_limit=abs_limit_10000)
+X_train_stats = process_stats(
+    X_train,
+    normalize=True,
+    abs_limit=abs_limit_10000,
+)
 y_train = process_targets(y_train)
 
-X_test = process_stats(X_test, normalize=True, abs_limit=abs_limit_10000)
+X_test_stats = process_stats(
+    X_test,
+    normalize=True,
+    abs_limit=abs_limit_10000,
+)
 y_test = process_targets(y_test)
 
 
-X_train = extract_features(X_train, fit=True)
-X_test = extract_features(X_test, fit=False)
+X_train = extract_features(
+    X_train,
+    X_train_stats,
+    name_vectorizer=name_vectorizer,
+    sample_vectorizer=sample_vectorizer,
+    samples=2,
+    fit=True,
+)
+X_test = extract_features(
+    X_test,
+    X_test_stats,
+    name_vectorizer=name_vectorizer,
+    sample_vectorizer=sample_vectorizer,
+    samples=2,
+    fit=False,
+)
 
 
-X_train_new = X_train.reset_index(drop=True).values
-y_train_new = y_train.reset_index(drop=True).values.ravel()
+X_train = X_train.reset_index(drop=True).values
+y_train = y_train.reset_index(drop=True).values.ravel()
 
 
 K = 5
@@ -101,9 +97,9 @@ best_param_count = {'cval': {}}
 best_model: Optional[LogisticRegression] = None
 best_score = best_cval = 0
 
-for train_index, test_index in kf.split(X_train_new):
-    X_train_cur, X_test_cur = X_train_new[train_index], X_train_new[test_index]
-    y_train_cur, y_test_cur = y_train_new[train_index], y_train_new[test_index]
+for train_index, test_index in kf.split(X_train):
+    X_train_cur, X_test_cur = X_train[train_index], X_train[test_index]
+    y_train_cur, y_test_cur = y_train[train_index], y_train[test_index]
     X_train_train, X_val, y_train_train, y_val = train_test_split(
         X_train_cur, y_train_cur, test_size=0.25, random_state=100
     )

@@ -22,11 +22,10 @@ from sklearn.preprocessing import StandardScaler
 from ..common import (
     abs_limit_10000,
     extract_features,
-    load_test,
-    load_train,
     process_stats,
     process_targets,
 )
+from ..resources import load_test, load_train
 
 # %%
 name_vectorizer = CountVectorizer(ngram_range=(2, 2), analyzer='char')

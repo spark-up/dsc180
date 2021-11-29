@@ -22,11 +22,10 @@ from ..common import (
     abs_limit_10000,
     create_vectorizer,
     extract_features,
-    load_test,
-    load_train,
     process_stats,
     process_targets,
 )
+from ..resources import load_test, load_train
 
 # %%
 USE_STATS = True

@@ -222,30 +222,11 @@ X_sample_test = to_padded_sequences(tokenizer_sample, sample_sentences_test)
 
 # %%
 def build_model(neurons, numfilters, embed_size):
-    inp = Input(shape=(None,))
+    name_input = Input(shape=(None,))
     x = Embedding(
-        input_dim=len(tokenizer.word_counts) + 1, output_dim=embed_size
-    )(inp)
-    out_conv = []
-
-    for i in range(2):
-        x = Conv1D(
-            numfilters,
-            kernel_size=3,
-            activation='tanh',
-            kernel_initializer='glorot_normal',
-        )(x)
-        numfilters = numfilters * 2
-
-    out_conv += [(GlobalMaxPool1D()(x))]
-    out_conv += [GlobalMaxPool1D()(x)]
-    x += [GlobalMaxPool1D()(x)]
-    xy = concatenate(out_conv, axis=-1)
-
-    inp1 = Input(shape=(None,))
-    x = Embedding(
-        input_dim=len(tokenizer.word_counts) + 1, output_dim=embed_size
-    )(inp1)
+        input_dim=len(tokenizer.word_counts) + 1,
+        output_dim=embed_size,
+    )(name_input)
     out_conv = []
 
     for _ in range(2):
@@ -257,23 +238,45 @@ def build_model(neurons, numfilters, embed_size):
         )(x)
         numfilters = numfilters * 2
 
-    out_conv += [(GlobalMaxPool1D()(x))]
+    out_conv += [GlobalMaxPool1D()(x)]
     out_conv += [GlobalMaxPool1D()(x)]
     x += [GlobalMaxPool1D()(x)]
-    xy1 = concatenate(out_conv, axis=-1)
+    word_xy = concatenate(out_conv, axis=-1)
 
-    Str_input = Input(shape=(19,))
-    layersfin = concatenate([xy, xy1, Str_input])
-    x = BatchNormalization()(layersfin)
+    sample_input = Input(shape=(None,))
+    x = Embedding(
+        input_dim=len(tokenizer.word_counts) + 1,
+        output_dim=embed_size,
+    )(sample_input)
+    out_conv = []
+
+    for _ in range(2):
+        x = Conv1D(
+            numfilters,
+            kernel_size=3,
+            activation='tanh',
+            kernel_initializer='glorot_normal',
+        )(x)
+        numfilters = numfilters * 2
+
+    out_conv += [GlobalMaxPool1D()(x)]
+    out_conv += [GlobalMaxPool1D()(x)]
+    x += [GlobalMaxPool1D()(x)]
+    sample_xy = concatenate(out_conv, axis=-1)
+
+    structured_input = Input(shape=(19,))
+    layers_final = concatenate([word_xy, sample_xy, structured_input])
+    x = BatchNormalization()(layers_final)
 
     x = Dense(neurons, activation='tanh')(x)
     x = Dropout(0.5)(x)
     x = Dense(neurons, activation='relu')(x)
     x = Dropout(0.5)(x)
     x = Dense(9, activation='softmax')(x)
-    model = Model(inputs=[inp, inp1, Str_input], outputs=[x])
-    opt = keras.optimizers.Adam(learning_rate=3e-3)
-    opt = keras.optimizers.RMSprop(learning_rate=1e-2)
+    model = Model(
+        inputs=[name_input, sample_input, structured_input],
+        outputs=[x],
+    )
     model.compile(
         loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']
     )
