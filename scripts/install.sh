@@ -11,7 +11,7 @@ CONDA_ENV="$tmpdir/venv"
 export POETRY_HOME="$tmpdir/poetry"
 
 conda create -yq -p "$CONDA_ENV" python==3.8 poetry
-export "$CONDA_ENV/bin:$PATH"
+export "PATH=$CONDA_ENV/bin:$PATH"
 
 poetry config virtualenvs.in-project true
 poetry install -nq
