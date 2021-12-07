@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import pandas as pd
 
@@ -19,6 +19,7 @@ from ..resources import (
     load_test,
 )
 from ._mojibake import drop_bad_rows
+from .measure import Experiment
 
 if TYPE_CHECKING:
     import keras
@@ -32,42 +33,6 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class Experiment:
-    name: ClassVar = 'Unnamed'
-
-    def setup(self):
-        """
-        Prepare the experiment environment.
-
-        This is called exactly once for each experiment trial.
-        """
-
-    def prepare(self):
-        """
-        Prepare the experiment environment for each trial iteration.
-
-        This is called exactly once for each experiment trial iteration
-        and thus must correctly handle multiple invocations.
-        """
-
-    def run(self) -> Any:
-        """
-        Execute an experiment trial iteration.
-
-        This is called exactly once for each experiment trial iteration
-        and thus must correctly handle multiple invocations.
-        """
-        ...
-
-    def cleanup(self):
-        """
-        Cleanup the experiment environment.
-
-        This is called exactly once for each experiment trial.
-        """
-
-
-@dataclass
 class _ZooExperiment(Experiment):
     # Placeholder Types
     model: Any = None
@@ -77,6 +42,9 @@ class _ZooExperiment(Experiment):
         )
     )
     prepared_data: Optional[Any] = None
+
+    def __post_init__(self):
+        self.iterations = len(self.raw_data.index)
 
     def run(self):
         assert self.model and self.prepared_data is not None
