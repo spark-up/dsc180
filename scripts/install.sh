@@ -6,13 +6,12 @@ scripts="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 get_poetry_url='https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py'
 
-export POETRY_HOME="$(mktemp /tmp/poetry-home.XXXX)"
-CONDA_ENV="$(mktemp /tmp/replication-env.XXXX)"
+tmpdir="$(mktemp /tmp/replication.XXXXXX)"
+CONDA_ENV="$tmpdir/venv"
+export POETRY_HOME="$tmpdir/poetry"
 
 conda create -yq -p "$CONDA_ENV" python==3.8 poetry
-
-curl "$get_poetry_url" | python - -- -yf --no-modify-path
-source "$POETRY_HOME/env"
+export "$CONDA_ENV/bin:$PATH"
 
 poetry config virtualenvs.in-project true
 poetry install -nq
