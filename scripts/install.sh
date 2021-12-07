@@ -8,7 +8,6 @@ get_poetry_url='https://raw.githubusercontent.com/python-poetry/poetry/master/ge
 
 tmpdir="$(mktemp -d /tmp/replication.XXXXXX)"
 CONDA_ENV="$tmpdir/venv"
-NLTK_DATA="$tmpdir/nltk"
 export POETRY_HOME="$tmpdir/poetry"
 
 conda create -yq -p "$CONDA_ENV" python==3.8 poetry
@@ -17,6 +16,6 @@ export "PATH=$CONDA_ENV/bin:$PATH"
 poetry config virtualenvs.in-project true
 poetry install -nq
 
-.venv/bin/python -m nltk.downloader -d "$NLTK_DATA" punkt stopwords
+.venv/bin/python -m nltk.downloader -d ".venv/nltk_data" punkt stopwords
 
 bash scripts/download-zoo-resources.sh
