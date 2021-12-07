@@ -6,7 +6,7 @@ scripts="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 get_poetry_url='https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py'
 
-tmpdir="$(mktemp /tmp/replication.XXXXXX)"
+tmpdir="$(mktemp -d /tmp/replication.XXXXXX)"
 CONDA_ENV="$tmpdir/venv"
 export POETRY_HOME="$tmpdir/poetry"
 
