@@ -1,0 +1,4 @@
+{
+  "dockerhub-id": "ucsdets/scipy-ml-notebook:2021.3-stable",
+  "build-script": "sh -c 'cd /tmp && git clone -b dsc180a-submit --single-branch --recurse-submodules https://github.com/0az/dsc180.git && cd dsc180 && bash scripts/install.sh && source .venv/bin/activate && python -m replication.runtime'"
+}
