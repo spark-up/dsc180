@@ -18,6 +18,8 @@ scikit-learn = '>=0.22.2.post1,<0.23'
 tensorflow-data-validation = '~=1.4.0'
 tensorflow = '~=2.7.0'
 urllib3 = '>=1.26.7'
+scipy = "~=1.7.3"
+statsmodels = "^0.13.1"
 
 [tool.poetry.dev-dependencies]
 
