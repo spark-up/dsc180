@@ -7,7 +7,7 @@ import pandas as pd
 
 from .. import lib as replication_lib
 from ..common import abs_limit_10000, extract_features, process_stats
-from ..resources import (
+from ..lazy_resources import (
     load_cnn,
     load_keras_name_tokenizer,
     load_keras_sample_tokenizer,

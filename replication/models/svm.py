@@ -25,7 +25,7 @@ from ..common import (
     process_stats,
     process_targets,
 )
-from ..resources import load_test, load_train
+from ..lazy_resources import load_test, load_train
 
 # %%
 name_vectorizer = CountVectorizer(ngram_range=(2, 2), analyzer='char')

@@ -10,11 +10,17 @@ from __future__ import annotations
 
 import pickle
 import warnings
-from functools import wraps
+from functools import cache, wraps
+from os import PathLike
 from pathlib import Path
+from tempfile import mkdtemp
 from typing import TYPE_CHECKING, Any, Callable, Dict, TypeVar
 
 import pandas as pd
+from nltk.corpus import stopwords as _stopwords
+from nltk.corpus.util import LazyCorpusLoader
+from nltk.downloader import Downloader
+from nltk.downloader import download as _nltk_download
 
 if TYPE_CHECKING:
     import keras
@@ -23,6 +29,11 @@ if TYPE_CHECKING:
     import sklearn.feature_extraction.text
     import sklearn.linear_model
     import sklearn.svm
+
+
+_T = TypeVar('_T')
+
+_CACHE: Dict[Callable[[], Any], Any] = {}
 
 ROOT = Path(__file__).parent.parent
 ZOO_RESOURCES = ROOT / 'data' / 'zoo-resources'
@@ -87,9 +98,25 @@ def load_keras_sample_tokenizer() -> keras.preprocessing.text.Tokenizer:
         return pickle.load(f)
 
 
-_T = TypeVar('_T')
+def _get_downloader(path: PathLike = None, /) -> Downloader:
+    return Downloader(download_dir=str(path))
 
-_CACHE: Dict[Callable[[], Any], Any] = {}
+
+def fetch_nltk_data(path: PathLike = None) -> None:
+    if not path:
+        path = mkdtemp()  # type: ignore
+
+    dl = _get_downloader(path)
+
+    if dl.status('stopwords') != 'INSTALLED':
+        dl.download('stopwords', quiet=True)
+    if dl.status('punkt') != 'INSTALLED':
+        dl.download('punkt', quiet=True)
+
+
+def load_stopwords() -> frozenset[str]:
+    fetch_nltk_data()
+    return frozenset(_stopwords.words('english'))
 
 
 def _cache(fn: Callable[[], _T]) -> Callable[[], _T]:
@@ -105,7 +132,7 @@ def _cache(fn: Callable[[], _T]) -> Callable[[], _T]:
 
 
 for name, fn in dict(globals()).items():
-    if name.startswith('load_') and callable(fn):
+    if name.startswith('load_') or name.startswith('_get_') and callable(fn):
         globals()[name] = _cache(fn)
 
 

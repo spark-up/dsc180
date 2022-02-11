@@ -27,7 +27,7 @@ from ..common import (
     process_stats,
     process_targets,
 )
-from ..resources import load_test, load_train
+from ..lazy_resources import load_test, load_train
 
 # %%
 X_train = load_train()

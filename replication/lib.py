@@ -14,6 +14,9 @@
 
 
 import re
+from collections import Counter
+from functools import cache, partial
+from typing import Callable, Final, cast
 
 import numpy as np
 import pandas as pd
@@ -23,7 +26,9 @@ from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import StandardScaler
 
 from .common import abs_limit_10000 as abs_limit
-from .resources import (
+from .constants import LEGACY_NAME_MAP
+from .lazy_resources import (
+    fetch_nltk_data,
     load_cnn,
     load_keras_name_tokenizer,
     load_keras_sample_tokenizer,
@@ -31,13 +36,13 @@ from .resources import (
     load_random_forest,
     load_sklearn_name_vectorizer,
     load_sklearn_sample_vectorizer,
+    load_stopwords,
     load_svm,
     load_test,
     load_train,
 )
 
-DEL_RE = re.compile(r'([^,;\|]+[,;\|]{1}[^,;\|]+){1,}')
-
+IS_DELIMITED_RE = re.compile(r'[^,;\|]+([,;\|][^,;\|]+)+')
 DELIMITER_RE = re.compile(r'(,|;|\|)')
 
 URL_RE = re.compile(
@@ -48,11 +53,7 @@ URL_RE = re.compile(
 
 EMAIL_RE = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b')
 
-STOPWORDS = set(stopwords.words('english'))
-
-
-def _summary_stats(col):
-    pass
+STOPWORDS = set(load_stopwords.words('english'))
 
 
 def summary_stats(df, keys):
@@ -83,14 +84,12 @@ def summary_stats(df, keys):
 def get_sample(df, keys):
     rand = []
     for name in keys:
-        rand_sample = list(pd.unique(df[name]))
+        unique = df[name].unique()
+        rand_sample = list(unique)
         rand_sample = rand_sample[:5]
-        while len(rand_sample) < 5:
-            rand_sample.append(
-                list(pd.unique(df[name]))[
-                    np.random.randint(len(list(pd.unique(df[name]))))
-                ]
-            )
+        if len(rand_sample) < 5:
+            l = np.random.choice(rand_sample, 5 - len(rand_sample))
+            rand_sample.extend(l)
         rand.append(rand_sample[:5])
     return rand
 
@@ -110,7 +109,108 @@ def get_ratio_nans(summary_stat_result):
     return ratio_nans
 
 
-def featurize_file(df):
+def _stopword_count(s: str) -> int:
+    fetch_nltk_data()
+    counts = Counter(word_tokenize(s))
+    return sum(v for k, v in counts.items() if k in load_stopwords())
+
+
+def _fill_up(s: pd.Series, n: int):
+    remaining = n - len(s)
+    if remaining <= 0:
+        return s.iloc[:n]
+
+    l = [s]
+    while remaining > len(s):
+        l.append(s)
+        remaining -= len(s)
+    if remaining:
+        l.append(s.head(remaining))
+    return pd.concat(l)
+
+
+def sample_features_from_values(
+    df: pd.DataFrame,
+    /,
+    *,
+    use_legacy_names=False,
+    _n=5,
+) -> pd.DataFrame:
+    """
+    Extracts features from tidy Pandas DataFrame.
+
+    Expects columns `column`, `value`.
+    """
+    # First, we resample up
+    df = (
+        df.groupby('column', as_index=False)
+        .apply(partial(_fill_up, n=_n))
+        .reset_index(drop=True)
+    )
+
+    # COLUMN
+    values: pd.Series[str] = cast('pd.Series[str]', df['value'])
+
+    # NOTE: Bug in original means that delimiter_count will always equal whitespace_count
+    df['is_delimited'] = values.str.match(IS_DELIMITED_RE)
+    df['delimiter_count'] = values.str.count(DELIMITER_RE)
+    df['word_count'] = values.str.split(' ', regex=False).map(len)  # type: ignore
+    df['char_count'] = values.str.len()
+    df['whitespace_count'] = values.str.count('')
+    df['is_url'] = values.str.match(URL_RE)
+    df['is_email'] = values.str.match(EMAIL_RE)
+    df['is_datetime'] = pd.to_datetime(values, errors='coerce').notnull()
+
+    df['stopword_count'] = values.map(_stopword_count)
+
+    aggs: dict[str, str | Callable] = {'value': list}
+    is_cols = [
+        'is_delimited',
+        'is_url',
+        'is_email',
+        'is_datetime',
+    ]
+    count_cols = [
+        'delimiter_count',
+        'word_count',
+        'char_count',
+        'whitespace_count',
+        'stopword_count',
+    ]
+    cols = is_cols + count_cols
+    aggs.update({col: 'sum' for col in cols})
+
+    result = df.groupby('column').agg(aggs)
+    values = result.value
+
+    for col in is_cols:
+        result[col] = result[col] >= 3  # type: ignore
+
+    for col in count_cols:
+        s = result[col]
+        result[f'mean_{col}'] = s.mean()
+        result[f'std_{col}'] = s.std()
+
+    result = result.drop(columns=count_cols)
+
+    result['is_list'] = result.is_delimited & (result.mean_char_count < 100)
+    result['is_long_sentence'] = result.mean_word_count > 10
+
+    for i in range(_n):
+        result[f'sample_{i}'] = values.str.get(i)
+
+    result: pd.DataFrame = cast(
+        pd.DataFrame,
+        result[list(LEGACY_NAME_MAP.keys())],
+    )
+
+    if use_legacy_names:
+        result = result.rename(columns=LEGACY_NAME_MAP)
+
+    return result
+
+
+def featurize_file(df: pd.DataFrame):
     stats = []
     attribute_name = []
     sample = []
@@ -119,12 +219,12 @@ def featurize_file(df):
     ratio_dist_val = []
     ratio_nans = []
 
-    keys = list(df.keys())
+    columns = df.columns.tolist()
 
-    attribute_name.extend(keys)
-    summary_stat_result = summary_stats(df, keys)
+    attribute_name.extend(columns)
+    summary_stat_result = summary_stats(df, columns)
     stats.extend(summary_stat_result)
-    samples = get_sample(df, keys)
+    samples = get_sample(df, columns)
     sample.extend(samples)
 
     ratio_dist_val.extend(get_ratio_dist_val(summary_stat_result))
@@ -173,7 +273,7 @@ def featurize_file(df):
             chars_totals.append(len(str(value)))
             whitespaces.append(str(value).count(' '))
 
-            if DEL_RE.match(str(value)):
+            if IS_DELIMITED_RE.match(str(value)):
                 delim_cnt += 1
             if URL_RE.match(str(value)):
                 url_cnt += 1
@@ -225,8 +325,8 @@ def featurize_file(df):
         df.at[row.Index, 'mean_whitespace_count'] = np.mean(whitespaces)
         df.at[row.Index, 'stdev_whitespace_count'] = np.std(whitespaces)
 
-        df.at[row.Index, 'mean_delim_count'] = np.mean(whitespaces)
-        df.at[row.Index, 'stdev_delim_count'] = np.std(whitespaces)
+        df.at[row.Index, 'mean_delim_count'] = np.mean(delims_count)
+        df.at[row.Index, 'stdev_delim_count'] = np.std(delims_count)
 
         if (
             df.at[row.Index, 'has_delimiters']

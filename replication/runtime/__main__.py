@@ -8,7 +8,7 @@ from textwrap import indent
 
 import pandas as pd
 
-from ..resources import force_load
+from ..lazy_resources import force_load
 from .experiments import Cnn, Experiment, Logistic, RandomForest, Svm
 from .measure import ExperimentLab
 

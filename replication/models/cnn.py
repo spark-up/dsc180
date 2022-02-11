@@ -43,7 +43,7 @@ from sklearn.preprocessing import StandardScaler
 from ..common import DICT_LABELS
 from ..common import abs_limit_10000 as abs_limit
 from ..common import to_string_list
-from ..resources import load_test, load_train
+from ..lazy_resources import load_test, load_train
 
 # define network parameters
 MAX_FEATURES = 256
