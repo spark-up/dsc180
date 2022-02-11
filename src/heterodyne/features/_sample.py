@@ -111,7 +111,7 @@ def sample_features_from_values(
     df['delimiter_count'] = values.str.count(DELIMITER_RE)
     df['word_count'] = values.str.split(' ', regex=False).map(len)  # type: ignore
     df['char_count'] = values.str.len()
-    df['whitespace_count'] = values.str.count('')
+    df['whitespace_count'] = values.str.count(' ')
     df['is_url'] = values.str.match(URL_RE)
     df['is_email'] = values.str.match(EMAIL_RE)
     df['is_datetime'] = pd.to_datetime(values, errors='coerce').notnull()
