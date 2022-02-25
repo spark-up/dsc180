@@ -12,7 +12,12 @@ from ..lazy_resources import force_load
 from .experiments import spark_scale
 from .measure import ExperimentLab
 
+from ..lazy_resources import load_scale
+
 from pyspark.sql import SparkSession, DataFrame
+
+spark = SparkSession.builder.appName('experiment').getOrCreate() 
+
 EXPERIMENTS = {
   #  'cnn': Cnn,
   #  'logistic': Logistic,
@@ -35,13 +40,12 @@ COLUMNS = {
 
 CONSOLE_FORMAT = '''
 ---
-name: {name}
 results:
   prepare:  {prepare:.3e}
   run:      {run:.3e}
   total:    {total:.3e}
 '''
-spark = SparkSession.builder.appName('experiment').getOrCreate() 
+
 
 def non_negative_int(s: str) -> int:
     i = int(s)
@@ -75,8 +79,11 @@ force_load()
 
 results = {}
 raw_results = {}
+
+sdf = load_scale()
+
 for name, Klass in EXPERIMENTS.items():
-    x = ExperimentLab(Klass(), trials=args.trials, tests=args.tests)
+    x = ExperimentLab(Klass(spark, sdf), trials=args.trials, tests=args.tests)
     profiles = x.measure()
     df = pd.DataFrame(
         columns=tuple(COLUMNS.keys()),
@@ -86,6 +93,8 @@ for name, Klass in EXPERIMENTS.items():
     df['total'] = df.prepare + df.run
 
     raw_results[name] = df
+
+    sdf = sdf.union(sdf)
 
 for name, df in raw_results.items():
     iterations = df.iterations.sum()
@@ -102,10 +111,10 @@ for name, df in raw_results.items():
 
 if args.format == 'console':
     for result in results.values():
-        #print(CONSOLE_FORMAT.format_map(result))
+        print(CONSOLE_FORMAT.format_map(result))
         print('  table: |')
         print(indent(df.to_string(), ' ' * 4))  # type: ignore
 elif args.format == 'latex':
     df = pd.DataFrame.from_records(results.values()).set_index('name')
 
-print(result)
+#print(result)

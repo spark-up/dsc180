@@ -7,7 +7,7 @@ import pandas as pd
 
 from ..features._impl import extract_features
 from .. import lib as replication_lib
-from ..common import abs_limit_10000, extract_features, process_stats
+from ..common import abs_limit_10000, process_stats
 from ..lazy_resources import (
     load_scale,
     #load_cnn,
@@ -33,16 +33,23 @@ if TYPE_CHECKING:
     import sklearn.svm
     from sklearn.feature_extraction.text import CountVectorizer
 
+from pyspark.sql import SparkSession, DataFrame
+
 @dataclass
 class spark_scale(Experiment):
     #sdf: SparkDataFrame
+    #spark = SparkSession.builder.appName('experiment').getOrCreate() 
+    def __init__(self, spark, sdf):
+        self.spark = spark 
+        self.sdf = sdf 
+        self.iterations = 2
 
-    def __post_init__(self):
-        self.iterations = 1
+    # def __post_init__(self):
+    #     self.iterations = 2
+        
     
     def setup(self):
-        
-        self.sdf = load_scale()
+        #self.sdf = sdf
         self.sdf = self.sdf.persist()
 
     def run(self):

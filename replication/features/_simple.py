@@ -13,6 +13,12 @@ from pyspark.sql.types import (
 
 from .util import ColumnFn, is_struct_field_numeric
 
+def count_all_nan(c):
+    return F.count((c == '' ) | \
+                            c.isNull() | \
+                            F.isnan(c) |
+                            (c == None))
+
 SIMPLE_FEATURES: dict[str, ColumnFn] = {
     'count': F.count,
     'distinct': F.count_distinct,

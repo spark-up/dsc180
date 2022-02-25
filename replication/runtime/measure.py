@@ -30,6 +30,7 @@ class Experiment:
         and thus must correctly handle multiple invocations.
         """
 
+
     def run(self) -> Any:
         """
         Execute an experiment trial iteration.
