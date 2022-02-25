@@ -22,6 +22,8 @@ from nltk.corpus.util import LazyCorpusLoader
 from nltk.downloader import Downloader
 from nltk.downloader import download as _nltk_download
 
+from pyspark.sql import SparkSession, DataFrame
+
 if TYPE_CHECKING:
     import keras
     import keras.preprocessing.text
@@ -56,46 +58,50 @@ def load_train():
 def load_test():
     return pd.read_csv(ZOO_BENCHMARK_DATA / 'data_test.csv')
 
+def load_scale():
+    spark = SparkSession.builder.appName('experiment').getOrCreate() 
+    return spark.read.csv('data/zoo-benchmark/indian_liver_patient.csv', header = True, inferSchema = True)
 
-def load_cnn() -> keras.models.Functional:
-    import keras
+# def load_cnn() -> keras.models.Functional:
+#     import keras
 
-    return keras.models.load_model(ZOO_RESOURCES / 'CNN.h5')
+#     return keras.models.load_model(ZOO_RESOURCES / 'CNN.h5')
 
 
-def load_random_forest() -> sklearn.ensemble.RandomForestClassifier:
-    with (ZOO_RESOURCES / 'RandomForest.pkl').open('rb') as f:
-        return pickle.load(f)
+# def load_random_forest() -> sklearn.ensemble.RandomForestClassifier:
+#     with (ZOO_RESOURCES / 'RandomForest.pkl').open('rb') as f:
+#         return pickle.load(f)
 
 
 def load_logistic_regression() -> sklearn.linear_model.LogisticRegression:
-    with open(ZOO_RESOURCES / 'LogReg.pkl', 'rb') as f:
+    with open(ZOO_BENCHMARK_DATA / 'LogReg.pkl', 'rb') as f:
         return pickle.load(f)
 
 
-def load_svm() -> sklearn.svm.SVC:
-    with open(ZOO_RESOURCES / 'SVM.pkl', 'rb') as f:
-        return pickle.load(f)
+# def load_svm() -> sklearn.svm.SVC:
+#     with open(ZOO_RESOURCES / 'SVM.pkl', 'rb') as f:
+#         return pickle.load(f)
+
 
 
 def load_sklearn_name_vectorizer() -> sklearn.feature_extraction.text.CountVectorizer:
-    with open(ZOO_DICTIONARIES / 'dictionaryName.pkl', 'rb') as f:
+    with open(ZOO_BENCHMARK_DATA / 'dictionaryName.pkl', 'rb') as f:
         return pickle.load(f)
 
 
 def load_sklearn_sample_vectorizer() -> sklearn.feature_extraction.text.CountVectorizer:
-    with open(ZOO_DICTIONARIES / 'dictionarySample.pkl', 'rb') as f:
+    with open(ZOO_BENCHMARK_DATA / 'dictionarySample.pkl', 'rb') as f:
         return pickle.load(f)
 
 
-def load_keras_name_tokenizer() -> keras.preprocessing.text.Tokenizer:
-    with open(ZOO_DICTIONARIES / 'keras_dictionaryName.pkl', 'rb') as f:
-        return pickle.load(f)
+# def load_keras_name_tokenizer() -> keras.preprocessing.text.Tokenizer:
+#     with open(ZOO_DICTIONARIES / 'keras_dictionaryName.pkl', 'rb') as f:
+#         return pickle.load(f)
 
 
-def load_keras_sample_tokenizer() -> keras.preprocessing.text.Tokenizer:
-    with open(ZOO_DICTIONARIES / 'keras_dictionarySample.pkl', 'rb') as f:
-        return pickle.load(f)
+# def load_keras_sample_tokenizer() -> keras.preprocessing.text.Tokenizer:
+#     with open(ZOO_DICTIONARIES / 'keras_dictionarySample.pkl', 'rb') as f:
+#         return pickle.load(f)
 
 
 def _get_downloader(path: PathLike = None, /) -> Downloader:
@@ -106,7 +112,7 @@ def fetch_nltk_data(path: PathLike = None) -> None:
     if not path:
         path = mkdtemp()  # type: ignore
 
-    dl = _get_downloader(path)
+    dl = Downloader(download_dir=str(path))
 
     if dl.status('stopwords') != 'INSTALLED':
         dl.download('stopwords', quiet=True)

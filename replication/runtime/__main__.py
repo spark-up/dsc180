@@ -9,19 +9,22 @@ from textwrap import indent
 import pandas as pd
 
 from ..lazy_resources import force_load
-from .experiments import Cnn, Experiment, Logistic, RandomForest, Svm
+from .experiments import spark_scale
 from .measure import ExperimentLab
 
+from pyspark.sql import SparkSession, DataFrame
 EXPERIMENTS = {
-    'cnn': Cnn,
-    'logistic': Logistic,
-    'noop': Experiment,
-    'random-forest': RandomForest,
-    'svm': Svm,
+  #  'cnn': Cnn,
+  #  'logistic': Logistic,
+    'Spark-Scale': spark_scale,
+   # 'noop': Experiment,
+   # 'random-forest': RandomForest,
+   # 'svm': Svm,
 }
 EXPERIMENT_ALIASES = {
-    'logistic': 'lr',
-    'random-forest': 'rf',
+  #  'logistic': 'lr',
+    'Spark-Scale': 'SS',
+#    'random-forest': 'rf',
 }
 COLUMNS = {
     'prepare': float,
@@ -38,7 +41,7 @@ results:
   run:      {run:.3e}
   total:    {total:.3e}
 '''
-
+spark = SparkSession.builder.appName('experiment').getOrCreate() 
 
 def non_negative_int(s: str) -> int:
     i = int(s)
@@ -99,8 +102,10 @@ for name, df in raw_results.items():
 
 if args.format == 'console':
     for result in results.values():
-        print(CONSOLE_FORMAT.format_map(result))
+        #print(CONSOLE_FORMAT.format_map(result))
         print('  table: |')
         print(indent(df.to_string(), ' ' * 4))  # type: ignore
 elif args.format == 'latex':
     df = pd.DataFrame.from_records(results.values()).set_index('name')
+
+print(result)

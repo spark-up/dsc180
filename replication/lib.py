@@ -29,15 +29,15 @@ from .common import abs_limit_10000 as abs_limit
 from .constants import LEGACY_NAME_MAP
 from .lazy_resources import (
     fetch_nltk_data,
-    load_cnn,
-    load_keras_name_tokenizer,
-    load_keras_sample_tokenizer,
+   # load_cnn,
+   # load_keras_name_tokenizer,
+   # load_keras_sample_tokenizer,
     load_logistic_regression,
-    load_random_forest,
+  #  load_random_forest,
     load_sklearn_name_vectorizer,
     load_sklearn_sample_vectorizer,
     load_stopwords,
-    load_svm,
+    #load_svm,
     load_test,
     load_train,
 )
@@ -53,7 +53,7 @@ URL_RE = re.compile(
 
 EMAIL_RE = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b')
 
-STOPWORDS = set(load_stopwords.words('english'))
+STOPWORDS = set(load_stopwords())
 
 
 def summary_stats(df, keys):
