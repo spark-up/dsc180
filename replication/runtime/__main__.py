@@ -15,8 +15,12 @@ from .measure import ExperimentLab
 from ..lazy_resources import load_scale
 
 from pyspark.sql import SparkSession, DataFrame
+from pyspark.context import SparkContext
+
 
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
+sc = spark.sparkContext
+sc.setCheckpointDir('checkpoint')
 
 EXPERIMENTS = {
   #  'cnn': Cnn,
@@ -77,44 +81,49 @@ args = ap.parse_args()
 
 force_load()
 
-results = {}
-raw_results = {}
+# results = {}
+# raw_results = {}
 
 sdf = load_scale()
 
+# for i in range(10):
+#     sdf = sdf.union(sdf)
+
 for name, Klass in EXPERIMENTS.items():
-    x = ExperimentLab(Klass(spark, sdf), trials=args.trials, tests=args.tests)
-    profiles = x.measure()
-    df = pd.DataFrame(
-        columns=tuple(COLUMNS.keys()),
-    ).astype(COLUMNS)
-    if profiles:
-        df[['prepare', 'run', 'iterations']] = pd.DataFrame.from_records(profiles)  # type: ignore
-    df['total'] = df.prepare + df.run
+    for i in range(10):
+        results = {}
+        raw_results = {}
 
-    raw_results[name] = df
+        x = ExperimentLab(Klass(spark, sdf), trials=args.trials, tests=args.tests)
+        profiles = x.measure()
+        df = pd.DataFrame(
+            columns=tuple(COLUMNS.keys()),
+        ).astype(COLUMNS)
+        if profiles:
+            df[['prepare', 'run', 'iterations']] = pd.DataFrame.from_records(profiles)  # type: ignore
+        df['total'] = df.prepare + df.run
 
-    sdf = sdf.union(sdf)
+        raw_results[name] = df
+        for name, df in raw_results.items():
+            iterations = df.iterations.sum()
+            prepare = df.prepare.sum() / iterations
+            run = df.run.sum() / iterations
+            total = prepare + run
 
-for name, df in raw_results.items():
-    iterations = df.iterations.sum()
-    prepare = df.prepare.sum() / iterations
-    run = df.run.sum() / iterations
-    total = prepare + run
-
-    results[name] = dict(
-        # name=name,
-        prepare=prepare,
-        run=run,
-        total=total,
-    )
-
-if args.format == 'console':
-    for result in results.values():
-        print(CONSOLE_FORMAT.format_map(result))
-        print('  table: |')
-        print(indent(df.to_string(), ' ' * 4))  # type: ignore
-elif args.format == 'latex':
-    df = pd.DataFrame.from_records(results.values()).set_index('name')
+            results[name] = dict(
+                # name=name,
+                prepare=prepare,
+                run=run,
+                total=total,
+            )
+        if args.format == 'console':
+            for result in results.values():
+                print(CONSOLE_FORMAT.format_map(result))
+                print('  table: |')
+                print(indent(df.to_string(), ' ' * 4))  # type: ignore
+        elif args.format == 'latex':
+            df = pd.DataFrame.from_records(results.values()).set_index('name')
+        sdf = sdf.union(sdf)
+        sdf = sdf.checkpoint(True)
 
 #print(result)

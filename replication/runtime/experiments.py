@@ -39,15 +39,15 @@ from pyspark.sql import SparkSession, DataFrame
 class spark_scale(Experiment):
     #sdf: SparkDataFrame
     #spark = SparkSession.builder.appName('experiment').getOrCreate() 
+
     def __init__(self, spark, sdf):
         self.spark = spark 
         self.sdf = sdf 
-        self.iterations = 2
+        self.iterations = 1
 
     # def __post_init__(self):
     #     self.iterations = 2
         
-    
     def setup(self):
         #self.sdf = sdf
         self.sdf = self.sdf.persist()
