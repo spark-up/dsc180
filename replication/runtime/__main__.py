@@ -16,24 +16,17 @@ from ..lazy_resources import load_scale
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.context import SparkContext
-
+import seaborn as sns 
 
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
 sc.setCheckpointDir('checkpoint')
 
 EXPERIMENTS = {
-  #  'cnn': Cnn,
-  #  'logistic': Logistic,
-    'Spark-Scale': spark_scale,
-   # 'noop': Experiment,
-   # 'random-forest': RandomForest,
-   # 'svm': Svm,
+    'Spark-Scale': spark_scale
 }
 EXPERIMENT_ALIASES = {
-  #  'logistic': 'lr',
-    'Spark-Scale': 'SS',
-#    'random-forest': 'rf',
+    'Spark-Scale': 'SS'
 }
 COLUMNS = {
     'prepare': float,
@@ -89,8 +82,9 @@ sdf = load_scale()
 # for i in range(10):
 #     sdf = sdf.union(sdf)
 
+run_time = []
 for name, Klass in EXPERIMENTS.items():
-    for i in range(10):
+    for i in range(13):
         results = {}
         raw_results = {}
 
@@ -109,7 +103,7 @@ for name, Klass in EXPERIMENTS.items():
             prepare = df.prepare.sum() / iterations
             run = df.run.sum() / iterations
             total = prepare + run
-
+            run_time.append(run)
             results[name] = dict(
                 # name=name,
                 prepare=prepare,
@@ -125,5 +119,7 @@ for name, Klass in EXPERIMENTS.items():
             df = pd.DataFrame.from_records(results.values()).set_index('name')
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
-
+print(run_time)
+y_val = [i for i in range(1500)]
+sns.lineplot(x=run_time, y =y_val)
 #print(result)
