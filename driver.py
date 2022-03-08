@@ -18,10 +18,9 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.context import SparkContext
 import seaborn as sns 
 
-#PYTHONPATH='/srv/experiment/.venv/lib/python3.10/site-packages/'
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
-sc.setCheckpointDir('checkpoint')
+sc.setCheckpointDir('/tmp')
 
 def load_scale():
     #spark = SparkSession.builder.appName('experiment').getOrCreate() 
