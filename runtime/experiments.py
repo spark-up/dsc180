@@ -20,8 +20,8 @@ from features._impl import extract_features
 # #     # load_svm,
 # #     load_test,
 # )
-from _mojibake import drop_bad_rows
-from measure import Experiment
+from runtime._mojibake import drop_bad_rows
+from runtime.measure import Experiment
 
 if TYPE_CHECKING:
     import keras

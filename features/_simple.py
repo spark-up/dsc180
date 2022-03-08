@@ -11,7 +11,7 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from util import ColumnFn, is_struct_field_numeric
+from features.util import ColumnFn, is_struct_field_numeric
 
 def count_all_nan(c):
     return F.count((c == '' ) | \
