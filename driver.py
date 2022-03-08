@@ -24,7 +24,7 @@ sc.setCheckpointDir('/tmp/checkpoints')
 
 def load_scale():
     #spark = SparkSession.builder.appName('experiment').getOrCreate() 
-    return spark.read.csv('data/zoo-benchmark/members.csv', header = True, inferSchema = True)
+    return spark.read.csv('data/members.csv', header = True, inferSchema = True)
 
 EXPERIMENTS = {
     'Spark-Scale': spark_scale
