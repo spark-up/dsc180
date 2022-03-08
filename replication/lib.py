@@ -25,9 +25,9 @@ from nltk.tokenize import word_tokenize
 from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import StandardScaler
 
-from .common import abs_limit_10000 as abs_limit
-from .constants import LEGACY_NAME_MAP
-from .lazy_resources import (
+from common import abs_limit_10000 as abs_limit
+from constants import LEGACY_NAME_MAP
+from lazy_resources import (
     fetch_nltk_data,
    # load_cnn,
    # load_keras_name_tokenizer,

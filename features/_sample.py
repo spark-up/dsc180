@@ -9,7 +9,7 @@ from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StringType, StructField, StructType
 
-from ._data import fetch_data, stopwords
+from _data import fetch_data, stopwords
 
 IS_DELIMITED_RE = re.compile(r'[^,;\|]+([,;\|][^,;\|]+)+')
 DELIMITER_RE = re.compile(r'(,|;|\|)')

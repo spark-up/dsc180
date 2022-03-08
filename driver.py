@@ -8,9 +8,9 @@ from textwrap import indent
 
 import pandas as pd
 
-from .replication.lazy_resources import force_load
-from .runtime.experiments import spark_scale
-from .runtime.measure import ExperimentLab
+from replication.lazy_resources import force_load
+from runtime.experiments import spark_scale
+from runtime.measure import ExperimentLab
 
 #from ..lazy_resources import load_scale
 

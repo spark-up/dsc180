@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import pandas as pd
 
-from .features._impl import extract_features
+from features._impl import extract_features
 #from .. import lib as replication_lib
 #from ..common import abs_limit_10000, process_stats
 # from ..lazy_resources import (
@@ -20,8 +20,8 @@ from .features._impl import extract_features
 # #     # load_svm,
 # #     load_test,
 # )
-from ._mojibake import drop_bad_rows
-from .measure import Experiment
+from _mojibake import drop_bad_rows
+from measure import Experiment
 
 if TYPE_CHECKING:
     import keras

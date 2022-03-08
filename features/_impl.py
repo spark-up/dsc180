@@ -3,8 +3,8 @@ from typing import cast
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame
 
-from ._sample import sample_features_from_values, sample_with_select_distinct
-from ._simple import simple_features_impl, simple_features_melt
+from _sample import sample_features_from_values, sample_with_select_distinct
+from _simple import simple_features_impl, simple_features_melt
 
 
 def extract_features(
