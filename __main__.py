@@ -8,9 +8,9 @@ from textwrap import indent
 
 import pandas as pd
 
-from ..lazy_resources import force_load
-from .experiments import spark_scale
-from .measure import ExperimentLab
+from .replication.lazy_resources import force_load
+from .runtime.experiments import spark_scale
+from .runtime.measure import ExperimentLab
 
 #from ..lazy_resources import load_scale
 
@@ -18,6 +18,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.context import SparkContext
 import seaborn as sns 
 
+#PYTHONPATH='/srv/experiment/.venv/lib/python3.10/site-packages/'
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
 sc.setCheckpointDir('checkpoint')
