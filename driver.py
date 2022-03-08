@@ -20,7 +20,7 @@ import seaborn as sns
 
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
-sc.setCheckpointDir('/tmp')
+sc.setCheckpointDir('/tmp/checkpoints')
 
 def load_scale():
     #spark = SparkSession.builder.appName('experiment').getOrCreate() 
