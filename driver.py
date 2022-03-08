@@ -76,7 +76,7 @@ ap.add_argument(
 
 args = ap.parse_args()
 
-force_load()
+#force_load()
 
 # results = {}
 # raw_results = {}
