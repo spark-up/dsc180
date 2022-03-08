@@ -50,9 +50,9 @@ def extract_features(
     )
     sample_values_sdf = sample_with_select_distinct(df, 5)
     simple_df = cast(pd.DataFrame, simple_sdf.toPandas())
-    sample_values_df = cast(pd.DataFrame, sample_values_sdf.toPandas())
+    sample_values_df = cast(pd.DataFrame, sample_values_sdf.toPandas()).reset_index()
     sample_df = sample_features_from_values(
         sample_values_df,
         use_legacy_names=use_legacy_names,
-    )
+    ).reset_index()
     return pd.concat([simple_df, sample_df], axis='columns')

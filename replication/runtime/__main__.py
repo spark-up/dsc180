@@ -12,7 +12,7 @@ from ..lazy_resources import force_load
 from .experiments import spark_scale
 from .measure import ExperimentLab
 
-from ..lazy_resources import load_scale
+#from ..lazy_resources import load_scale
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.context import SparkContext
@@ -21,6 +21,10 @@ import seaborn as sns
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
 sc.setCheckpointDir('checkpoint')
+
+def load_scale():
+    #spark = SparkSession.builder.appName('experiment').getOrCreate() 
+    return spark.read.csv('data/zoo-benchmark/members.csv', header = True, inferSchema = True)
 
 EXPERIMENTS = {
     'Spark-Scale': spark_scale
@@ -84,7 +88,7 @@ sdf = load_scale()
 
 run_time = []
 for name, Klass in EXPERIMENTS.items():
-    for i in range(13):
+    for i in range(8):
         results = {}
         raw_results = {}
 
@@ -120,6 +124,8 @@ for name, Klass in EXPERIMENTS.items():
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
 print(run_time)
-y_val = [i for i in range(1500)]
-sns.lineplot(x=run_time, y =y_val)
+x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
+graph = sns.lineplot(x=x_val, y =run_time)
+graph.set_xlabel("Size (Gb)", fontsize = 20)
+graph.set_ylabel("time (seconds)", fontsize = 20)
 #print(result)
