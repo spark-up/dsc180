@@ -51,12 +51,12 @@ warnings.filterwarnings(
 )
 
 
-def load_train():
-    return pd.read_csv(ZOO_BENCHMARK_DATA / 'data_train.csv')
+# def load_train():
+#     return pd.read_csv(ZOO_BENCHMARK_DATA / 'data_train.csv')
 
 
-def load_test():
-    return pd.read_csv(ZOO_BENCHMARK_DATA / 'data_test.csv')
+# def load_test():
+#     return pd.read_csv(ZOO_BENCHMARK_DATA / 'data_test.csv')
 
 def load_scale():
     spark = SparkSession.builder.appName('experiment').getOrCreate() 
@@ -73,9 +73,9 @@ def load_scale():
 #         return pickle.load(f)
 
 
-def load_logistic_regression() -> sklearn.linear_model.LogisticRegression:
-    with open(ZOO_BENCHMARK_DATA / 'LogReg.pkl', 'rb') as f:
-        return pickle.load(f)
+# def load_logistic_regression() -> sklearn.linear_model.LogisticRegression:
+#     with open(ZOO_BENCHMARK_DATA / 'LogReg.pkl', 'rb') as f:
+#         return pickle.load(f)
 
 
 # def load_svm() -> sklearn.svm.SVC:

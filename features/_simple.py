@@ -34,6 +34,7 @@ SIMPLE_NUMERIC_FEATURES: dict[str, ColumnFn] = {
     #'nans': lambda c: count_all_nan(c),
     #'nans_percent': lambda c: 100 * F.count(F.isnan(c)) / F.count(c),
     #'nans_percent': lambda c: 100 * count_all_nan(c) / F.count(c),
+    
     'mean': F.mean,
     'std': F.stddev,
     'min': F.min,

@@ -2,17 +2,13 @@ import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-
 import argparse
 from textwrap import indent
 
 import pandas as pd
 
-#from replication.lazy_resources import force_load
 from runtime.experiments import spark_scale
 from runtime.measure import ExperimentLab
-
-#from ..lazy_resources import load_scale
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.context import SparkContext
@@ -75,15 +71,8 @@ ap.add_argument(
 
 args = ap.parse_args()
 
-#force_load()
-
-# results = {}
-# raw_results = {}
-
 sdf = load_scale()
 
-# for i in range(10):
-#     sdf = sdf.union(sdf)
 
 run_time = []
 for name, Klass in EXPERIMENTS.items():
@@ -122,9 +111,12 @@ for name, Klass in EXPERIMENTS.items():
             df = pd.DataFrame.from_records(results.values()).set_index('name')
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
+
+
 print(run_time)
+
 x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
 graph = sns.lineplot(x=x_val, y =run_time)
-graph.set_xlabel("Size (Gb)", fontsize = 20)
+graph.set_xlabel("Size (gbs)", fontsize = 20)
 graph.set_ylabel("time (seconds)", fontsize = 20)
-#print(result)
+graph.figure.savefig('results.png')
