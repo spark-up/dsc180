@@ -109,14 +109,17 @@ for name, Klass in EXPERIMENTS.items():
                 print(indent(df.to_string(), ' ' * 4))  # type: ignore
         elif args.format == 'latex':
             df = pd.DataFrame.from_records(results.values()).set_index('name')
+        
+        if i == 7:
+            break
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
 
 
-print(run_time)
+# print(run_time)
 
-x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
-graph = sns.lineplot(x=x_val, y =run_time)
-graph.set_xlabel("Size (gbs)", fontsize = 20)
-graph.set_ylabel("time (seconds)", fontsize = 20)
-graph.figure.savefig('results.png')
+# x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
+# graph = sns.lineplot(x=x_val, y =run_time)
+# graph.set_xlabel("Size (gbs)", fontsize = 20)
+# graph.set_ylabel("time (seconds)", fontsize = 20)
+# graph.figure.savefig('results.png')
