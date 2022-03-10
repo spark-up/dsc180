@@ -16,10 +16,10 @@ import seaborn as sns
 
 spark = SparkSession.builder.appName('experiment').getOrCreate() 
 sc = spark.sparkContext
-sc.setCheckpointDir('hdfs://10.11.13.109:9000/data/checkpoints')
+sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
 
 def load_scale():
-    return spark.read.csv('hdfs://10.11.13.109:9000/data/members.csv', header = True, inferSchema = True)
+    return spark.read.csv('hdfs://10.11.12.207:9000/data/members.csv', header = True, inferSchema = True)
 
 EXPERIMENTS = {
     'Spark-Scale': spark_scale
