@@ -104,7 +104,7 @@ for name, Klass in EXPERIMENTS.items():
                 run=run,
                 total=total,
             )
-        with open("/tmp/result.txt", "wa") as output:
+        with open("/tmp/result.txt", "a") as output:
             output.write(CONSOLE_FORMAT.format_map(results))
 
         if args.format == 'console':
