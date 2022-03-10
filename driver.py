@@ -105,7 +105,10 @@ for name, Klass in EXPERIMENTS.items():
                 total=total,
             )
         with open("/tmp/result.txt", "a") as output:
-            output.write(CONSOLE_FORMAT.format_map(results))
+            for result in results.values():
+                output.write(CONSOLE_FORMAT.format_map(result))
+                output.write('  table: |')
+                output.write(indent(df.to_string(), ' ' * 4))
 
         if args.format == 'console':
             for result in results.values():
