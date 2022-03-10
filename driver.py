@@ -124,7 +124,7 @@ for name, Klass in EXPERIMENTS.items():
         sdf = sdf.checkpoint(True)
 
 
-# print(run_time)
+print(run_time)
 
 # x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
 # graph = sns.lineplot(x=x_val, y =run_time)
