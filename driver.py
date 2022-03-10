@@ -102,6 +102,9 @@ for name, Klass in EXPERIMENTS.items():
                 run=run,
                 total=total,
             )
+        with open(f"result{i}.txt", "w") as output:
+            output.write(str(run_time))
+
         if args.format == 'console':
             for result in results.values():
                 print(CONSOLE_FORMAT.format_map(result))
