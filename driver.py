@@ -73,6 +73,8 @@ args = ap.parse_args()
 
 sdf = load_scale()
 
+with open('/tmp/result.txt', 'w') as fp:
+    pass
 
 run_time = []
 for name, Klass in EXPERIMENTS.items():
@@ -102,8 +104,8 @@ for name, Klass in EXPERIMENTS.items():
                 run=run,
                 total=total,
             )
-        with open(f"result{i}.txt", "w") as output:
-            output.write(str(run_time))
+        with open("/tmp/result.txt", "wa") as output:
+            output.write(CONSOLE_FORMAT.format_map(results))
 
         if args.format == 'console':
             for result in results.values():
