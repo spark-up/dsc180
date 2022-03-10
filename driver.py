@@ -76,7 +76,7 @@ sdf = load_scale()
 
 run_time = []
 for name, Klass in EXPERIMENTS.items():
-    for i in range(8):
+    for i in range(5):
         results = {}
         raw_results = {}
 
@@ -110,7 +110,7 @@ for name, Klass in EXPERIMENTS.items():
         elif args.format == 'latex':
             df = pd.DataFrame.from_records(results.values()).set_index('name')
         
-        if i == 7:
+        if i == 4:
             break
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
