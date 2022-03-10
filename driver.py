@@ -3,30 +3,19 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import argparse
+import sys
 from textwrap import indent
+from time import time
 
 import pandas as pd
+from pyspark.sql import SparkSession
 
-from runtime.experiments import spark_scale
+from runtime.experiments import spark_scale as SparkScalingExperiment
 from runtime.measure import ExperimentLab
 
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.context import SparkContext
-import seaborn as sns 
 
-spark = SparkSession.builder.appName('experiment').getOrCreate() 
-sc = spark.sparkContext
-sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
-
-def load_scale():
-    return spark.read.csv('hdfs://10.11.12.207:9000/data/members.csv', header = True, inferSchema = True)
-
-EXPERIMENTS = {
-    'Spark-Scale': spark_scale
-}
-EXPERIMENT_ALIASES = {
-    'Spark-Scale': 'SS'
-}
+EXPERIMENTS = {'Spark-Scale': SparkScalingExperiment}
+EXPERIMENT_ALIASES = {'Spark-Scale': 'SS'}
 COLUMNS = {
     'prepare': float,
     'run': float,
@@ -37,6 +26,7 @@ COLUMNS = {
 CONSOLE_FORMAT = '''
 ---
 results:
+  name:     {name}
   prepare:  {prepare:.3e}
   run:      {run:.3e}
   total:    {total:.3e}
@@ -68,66 +58,58 @@ ap.add_argument(
 ap.add_argument(
     '-f', '--format', choices=('console', 'latex'), default='console'
 )
+ap.add_argument(
+    '--scale-factor',
+    type=non_negative_int,
+    default=6,
+    help='The maximum scale factor.',
+)
 
 args = ap.parse_args()
 
-sdf = load_scale()
+spark = SparkSession.builder.appName('experiment').getOrCreate()
+sc = spark.sparkContext
+sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
 
-with open('/tmp/result.txt', 'w') as fp:
-    pass
+sdf = spark.read.csv(
+    'hdfs://10.11.12.207:9000/data/members.csv', header=True, inferSchema=True
+)
 
-run_time = []
-for name, Klass in EXPERIMENTS.items():
-    for i in range(5):
-        results = {}
-        raw_results = {}
+name = 'spark-scaling'
+output_file = f'/tmp/results-{int(time())}.yml'
 
-        x = ExperimentLab(Klass(spark, sdf), trials=args.trials, tests=args.tests)
-        profiles = x.measure()
-        df = pd.DataFrame(
-            columns=tuple(COLUMNS.keys()),
-        ).astype(COLUMNS)
-        if profiles:
-            df[['prepare', 'run', 'iterations']] = pd.DataFrame.from_records(profiles)  # type: ignore
-        df['total'] = df.prepare + df.run
+for i in range(args.scale_factor):
+    x = ExperimentLab(
+        SparkScalingExperiment(spark, sdf), trials=args.trials, tests=args.tests
+    )
+    profiles = x.measure()
+    df = pd.DataFrame(
+        columns=tuple(COLUMNS.keys()),
+    ).astype(COLUMNS)
+    if profiles:
+        df[['prepare', 'run', 'iterations']] = pd.DataFrame.from_records(profiles)  # type: ignore
+    df['total'] = df.prepare + df.run
 
-        raw_results[name] = df
-        for name, df in raw_results.items():
-            iterations = df.iterations.sum()
-            prepare = df.prepare.sum() / iterations
-            run = df.run.sum() / iterations
-            total = prepare + run
-            run_time.append(run)
-            results[name] = dict(
-                # name=name,
-                prepare=prepare,
-                run=run,
-                total=total,
-            )
-        with open("/tmp/result.txt", "a") as output:
-            for result in results.values():
-                output.write(CONSOLE_FORMAT.format_map(result))
-                output.write('  table: |')
-                output.write(indent(df.to_string(), ' ' * 4))
+    iterations = df.iterations.sum()
+    prepare = df.prepare.sum() / iterations
+    run = df.run.sum() / iterations
+    total = prepare + run
 
-        if args.format == 'console':
-            for result in results.values():
-                print(CONSOLE_FORMAT.format_map(result))
-                print('  table: |')
-                print(indent(df.to_string(), ' ' * 4))  # type: ignore
-        elif args.format == 'latex':
-            df = pd.DataFrame.from_records(results.values()).set_index('name')
-        
-        if i == 4:
-            break
+    result = dict(
+        name=f'{name}-{args.scale_factor}',
+        prepare=prepare,
+        run=run,
+        total=total,
+    )
+    with open(output_file, 'a') as output:
+        for f in (output, sys.stdout):
+            print(CONSOLE_FORMAT.format_map(result), file=f)
+            print('  table: |', file=f)
+            print(indent(df.to_string(), ' ' * 4), file=f)  # type: ignore
+
+    if i < args.scale_factor - 1:
         sdf = sdf.union(sdf)
         sdf = sdf.checkpoint(True)
-
-
-print(run_time)
-
-# x_val = [1.25, 2.51, 5.03, 10.07, 20.14, 40.29, 80.59, 161.19]
-# graph = sns.lineplot(x=x_val, y =run_time)
-# graph.set_xlabel("Size (gbs)", fontsize = 20)
-# graph.set_ylabel("time (seconds)", fontsize = 20)
-# graph.figure.savefig('results.png')
+    else:
+        # Last iteration
+        pass
