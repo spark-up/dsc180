@@ -69,18 +69,26 @@ args = ap.parse_args()
 
 spark = SparkSession.builder.appName('experiment').getOrCreate()
 sc = spark.sparkContext
-sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
+#sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
 
 sdf = spark.read.csv(
     'hdfs://10.11.12.207:9000/data/members.csv', header=True, inferSchema=True
 )
+for i in range(args.scale_factor):
+    sdf.write.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{args.scale_factor}.parquet')
+    if i < args.scale_factor - 1:
+        sdf = sdf.union(sdf)
+
+
+
 
 name = 'spark-scaling'
 output_file = f'/tmp/results-{int(time())}.yml'
 
 for i in range(args.scale_factor):
+    df = spark.read.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{args.scale_factor}.parquet')
     x = ExperimentLab(
-        SparkScalingExperiment(spark, sdf), trials=args.trials, tests=args.tests
+        SparkScalingExperiment(spark, df), trials=args.trials, tests=args.tests
     )
     profiles = x.measure()
     df = pd.DataFrame(
@@ -107,9 +115,9 @@ for i in range(args.scale_factor):
             print('  table: |', file=f)
             print(indent(df.to_string(), ' ' * 4), file=f)  # type: ignore
 
-    if i < args.scale_factor - 1:
-        sdf = sdf.union(sdf)
-        sdf = sdf.checkpoint(True)
-    else:
-        # Last iteration
-        pass
+    # if i < args.scale_factor - 1:
+    #     sdf = sdf.union(sdf)
+    #     sdf = sdf.checkpoint(True)
+    # else:
+    #     # Last iteration
+    #     pass
