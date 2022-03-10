@@ -75,7 +75,7 @@ sdf = spark.read.csv(
     'hdfs://10.11.12.207:9000/data/members.csv', header=True, inferSchema=True
 )
 for i in range(args.scale_factor):
-    sdf.write.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{args.scale_factor}.parquet')
+    sdf.write.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{i}.parquet')
     if i < args.scale_factor - 1:
         sdf = sdf.union(sdf)
 
@@ -86,7 +86,7 @@ name = 'spark-scaling'
 output_file = f'/tmp/results-{int(time())}.yml'
 
 for i in range(args.scale_factor):
-    df = spark.read.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{args.scale_factor}.parquet')
+    df = spark.read.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{i}.parquet')
     x = ExperimentLab(
         SparkScalingExperiment(spark, df), trials=args.trials, tests=args.tests
     )
