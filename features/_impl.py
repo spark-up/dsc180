@@ -3,8 +3,8 @@ from typing import cast
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame
 
-from features._sample import sample_features_from_values, sample_with_select_distinct
-from features._simple import simple_features_impl, simple_features_melt
+from ._sample import sample_features_from_values, sample_with_select_distinct
+from ._simple import simple_features_impl, simple_features_melt_in_pandas
 
 
 def extract_features(
@@ -12,6 +12,7 @@ def extract_features(
     /,
     *,
     use_legacy_names=False,
+    explain=False,
 ) -> pd.DataFrame:
     """
     Non-deterministically extract SortingHat features from a Spark DataFrame.
@@ -44,15 +45,24 @@ def extract_features(
     - `is_{url/email}` (legacy name `has_{url/email}`) only matches at the start of the string,
         and only match a subset of all URLs/Emails.
     """
-    simple_sdf = simple_features_melt(
-        simple_features_impl(df, use_legacy_names=use_legacy_names),
+    # name_col = 'name' if use_legacy_names else 'Attribute_name'
+    simple_features = simple_features_impl(
+        df,
+        use_legacy_names=use_legacy_names,
+        explain=explain,
+    )
+    simple_features = cast(pd.DataFrame, simple_features.toPandas())
+    simple_df = simple_features_melt_in_pandas(
+        simple_features,
         use_legacy_names=use_legacy_names,
     )
-    sample_values_sdf = sample_with_select_distinct(df, 5)
-    simple_df = cast(pd.DataFrame, simple_sdf.toPandas())
-    sample_values_df = cast(pd.DataFrame, sample_values_sdf.toPandas()).reset_index()
+    sample_values_sdf = sample_with_select_distinct(df, 5, explain=explain)
+    sample_values_df = cast(pd.DataFrame, sample_values_sdf.toPandas())
     sample_df = sample_features_from_values(
         sample_values_df,
         use_legacy_names=use_legacy_names,
-    ).reset_index()
-    return pd.concat([simple_df, sample_df], axis='columns')
+    )
+    return pd.concat(
+        [simple_df.reset_index(drop=True), sample_df.reset_index(drop=True)],
+        axis='columns',
+    )
