@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Callable, overload
 
 from pyspark.sql import Column, DataFrame
+from pyspark.sql import functions as F
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DataType, NumericType, StructField, StructType
 
@@ -61,7 +62,9 @@ def aggregate_columns(
     columns: list[str],
 ) -> list[Column]:
     return [
-        fn(col(c)).alias(f'{c}::{name}')
-        for c in columns
-        for name, fn in fns.items()
+        fn(col(c)).alias(f'{c}::{name}') for c in columns for name, fn in fns.items()
     ]
+
+
+def count_nan(c: Column) -> Column:
+    return F.count(F.isnull(c) | F.isnan(c) | (c == None) | (c == ''))
