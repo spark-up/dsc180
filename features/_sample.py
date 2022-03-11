@@ -9,7 +9,7 @@ from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import StringType, StructField, StructType
 
-from features._data import fetch_data, stopwords
+from ._data import fetch_data, stopwords
 
 IS_DELIMITED_RE = re.compile(r'[^,;\|]+([,;\|][^,;\|]+)+')
 DELIMITER_RE = re.compile(r'(,|;|\|)')
@@ -109,14 +109,14 @@ def sample_features_from_values(
     # NOTE: Bug in original means that delimiter_count will always equal whitespace_count
     df['is_delimited'] = values.str.match(IS_DELIMITED_RE)
     df['delimiter_count'] = values.str.count(DELIMITER_RE)
-    df['word_count'] = values.str.split(' ', regex=False).map(len, na_action='ignore')  # type: ignore
+    df['word_count'] = values.str.split(' ', regex=False).map(len)  # type: ignore
     df['char_count'] = values.str.len()
     df['whitespace_count'] = values.str.count(' ')
     df['is_url'] = values.str.match(URL_RE)
     df['is_email'] = values.str.match(EMAIL_RE)
     df['is_datetime'] = pd.to_datetime(values, errors='coerce').notnull()
 
-    df['stopword_count'] = values.map(_stopword_count, na_action='ignore')
+    df['stopword_count'] = values.map(_stopword_count)
 
     aggs: dict[str, str | Callable] = {'value': list}
     is_cols = [
@@ -168,6 +168,8 @@ def sample_features_from_values(
 def sample_with_select_distinct(
     df: SparkDataFrame,
     n: int = 5,
+    *,
+    explain=False,
 ) -> SparkDataFrame:
     cols = df.columns
 
@@ -180,4 +182,10 @@ def sample_with_select_distinct(
 
         result = result.union(df.select(expr).distinct().limit(n))
 
+    if explain:
+        print('-' * 20)
+        print('[EXPLAIN] sample_with_select_distinct')
+        print('-' * 20)
+        result.explain(mode='cost')
+        result.explain(mode='formatted')
     return result
