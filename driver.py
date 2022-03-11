@@ -8,11 +8,11 @@ from textwrap import indent
 from time import time
 
 import pandas as pd
+from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
-
+from pyspark.sql.utils import CapturedException
 from runtime.experiments import spark_scale as SparkScalingExperiment
 from runtime.measure import ExperimentLab
-
 
 EXPERIMENTS = {'Spark-Scale': SparkScalingExperiment}
 EXPERIMENT_ALIASES = {'Spark-Scale': 'SS'}
@@ -59,7 +59,13 @@ ap.add_argument(
     '-f', '--format', choices=('console', 'latex'), default='console'
 )
 ap.add_argument(
-    '--scale-factor',
+    '--min-scale',
+    type=non_negative_int,
+    default=0,
+    help='The maximum scale factor.',
+)
+ap.add_argument(
+    '--max-scale',
     type=non_negative_int,
     default=6,
     help='The maximum scale factor.',
@@ -67,26 +73,57 @@ ap.add_argument(
 
 args = ap.parse_args()
 
+if args.max_scale < args.min_scale:
+    raise ValueError(
+        'Argument max_scale must be greater than or equal to min_scale!'
+    )
+
 spark = SparkSession.builder.appName('experiment').getOrCreate()
 sc = spark.sparkContext
-#sc.setCheckpointDir('hdfs://10.11.12.207:9000/data/checkpoints')
 
-sdf = spark.read.csv(
-    'hdfs://10.11.12.207:9000/data/members.csv', header=True, inferSchema=True
+HDFS = '10.11.12.207:9000'
+
+
+def hdfs_exists(spark: SparkSession, path: str) -> bool:
+    jvm = spark._jvm  # type: ignore
+    hadoop_fs = jvm.org.apache.hadoop.fs
+    fs = hadoop_fs.FileSystem.get(spark._jsc.hadoopConfiguration())  # type: ignore
+    return fs.exists(hadoop_fs.Path(path))
+
+
+scaled = {}
+sdf_base = spark.read.csv(
+    f'hdfs://{HDFS}/data/members.csv',
+    header=True,
+    inferSchema=True,
 )
-for i in range(args.scale_factor):
-    sdf.write.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{i}.parquet')
-    if i < args.scale_factor - 1:
-        sdf = sdf.union(sdf)
 
+for i in range(args.min_scale):
+    sdf_base = sdf_base.union(sdf_base)
 
+sdf: SparkDataFrame | None = None
+
+for i in range(args.min_scale, args.max_scale + 1):
+    path = f'hdfs://{HDFS}/data/parquet/scale-{i:02d}.parquet'
+    try:
+        sdf = spark.read.parquet(path)
+    except CapturedException:
+        if not sdf:
+            sdf = sdf_base
+        sdf.write.parquet(path)
+
+    scaled[i] = spark.read.parquet(path)
+
+    sdf = sdf.union(sdf)
+
+del sdf
 
 
 name = 'spark-scaling'
 output_file = f'/tmp/results-{int(time())}.yml'
 
-for i in range(args.scale_factor):
-    df = spark.read.parquet(f'hdfs://10.11.12.207:9000/data/parquet/sdf{i}.parquet')
+for i in range(args.min_scale, args.max_scale + 1):
+    df = scaled[i]
     x = ExperimentLab(
         SparkScalingExperiment(spark, df), trials=args.trials, tests=args.tests
     )
@@ -104,20 +141,14 @@ for i in range(args.scale_factor):
     total = prepare + run
 
     result = dict(
-        name=f'{name}-{args.scale_factor}',
+        name=f'{name}-{i}',
         prepare=prepare,
         run=run,
         total=total,
     )
+
     with open(output_file, 'a') as output:
         for f in (output, sys.stdout):
             print(CONSOLE_FORMAT.format_map(result), file=f)
             print('  table: |', file=f)
             print(indent(df.to_string(), ' ' * 4), file=f)  # type: ignore
-
-    # if i < args.scale_factor - 1:
-    #     sdf = sdf.union(sdf)
-    #     sdf = sdf.checkpoint(True)
-    # else:
-    #     # Last iteration
-    #     pass
