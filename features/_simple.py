@@ -1,5 +1,6 @@
 from typing import Final
 
+import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, lit
@@ -11,38 +12,36 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from features.util import ColumnFn, is_struct_field_numeric
-
-def count_all_nan(c):
-    return F.count((c == '' ) | \
-                            c.isNull() | \
-                            F.isnan(c) |
-                            (c == None))
+from .util import ColumnFn, count_nan, is_struct_field_numeric
 
 SIMPLE_FEATURES: dict[str, ColumnFn] = {
     'count': F.count,
     'distinct': F.count_distinct,
     'distinct_percent': lambda c: 100 * F.count_distinct(c) / F.count(c),
-
-    'nans': lambda c: count_all_nan(c),
-    'nans_percent': lambda c: 100 * count_all_nan(c) / F.count(c),
 }
 
-
 SIMPLE_NUMERIC_FEATURES: dict[str, ColumnFn] = {
-    #'nans': lambda c: F.count(F.isnan(c) | c.isNull()), # added or isNull
-    #'nans': lambda c: count_all_nan(c),
-    #'nans_percent': lambda c: 100 * F.count(F.isnan(c)) / F.count(c),
-    #'nans_percent': lambda c: 100 * count_all_nan(c) / F.count(c),
-    
+    'nans': count_nan,
+    'nans_percent': lambda c: 100 * count_nan(c) / F.count(c),
     'mean': F.mean,
     'std': F.stddev,
     'min': F.min,
     'max': F.max,
 }
 
-_LONG_FEATURES = list(SIMPLE_FEATURES.keys()) #+ ['nans']
-_DOUBLE_FEATURES = list(SIMPLE_NUMERIC_FEATURES.keys())#[1:]
+_LONG_FEATURES = [
+    'count',
+    'distinct',
+    'nans',
+]
+_DOUBLE_FEATURES = [
+    'distinct_percent',
+    'nans_percent',
+    'mean',
+    'std',
+    'min',
+    'max',
+]
 
 _FEATURES = list(SIMPLE_FEATURES.keys()) + list(SIMPLE_NUMERIC_FEATURES.keys())
 
@@ -70,11 +69,19 @@ def _create_schema() -> StructType:
     return StructType(fields)
 
 
+def _get_dtypes() -> dict:
+    dtypes = {'name': 'string'}
+    dtypes.update({k: 'Int64' for k in _LONG_FEATURES})
+    dtypes.update({k: 'float64' for k in _DOUBLE_FEATURES})
+    return dtypes
+
+
 def simple_features_impl(
     df: SparkDataFrame,
     /,
     *,
     use_legacy_names=False,
+    explain=False,
 ) -> SparkDataFrame:
     cols = df.columns
     s_features = SIMPLE_FEATURES
@@ -100,6 +107,13 @@ def simple_features_impl(
 
     agg_df = df.agg(*simple_aggs, *numeric_aggs)
 
+    if explain:
+        print('-' * 20)
+        print('[EXPLAIN] simple_features_impl')
+        print('-' * 20)
+        agg_df.explain(mode='cost')
+        agg_df.explain(mode='formatted')
+
     return agg_df
 
 
@@ -107,8 +121,9 @@ def simple_features_melt(
     df: SparkDataFrame,
     /,
     *,
-    _cols: list[str] = None,
+    _cols: list[str] | None = None,
     use_legacy_names=False,
+    explain=False,
 ) -> SparkDataFrame:
     if not _cols:
         _cols = list({c.rsplit('::')[0] for c in df.columns})
@@ -127,5 +142,45 @@ def simple_features_melt(
     if use_legacy_names:
         expr = [col(k).alias(v) for k, v in _LEGACY_NAME_MAP.items()]
         result = result.select(expr)
+
+    if explain:
+        print('-' * 20)
+        print('[EXPLAIN] simple_features_melt')
+        print('-' * 20)
+        result.explain(mode='cost')
+        result.explain(mode='formatted')
+    return result
+
+
+def _split(s: str) -> tuple[str, str]:
+    return tuple(s.rsplit('::', 1))
+
+
+def simple_features_melt_in_pandas(
+    df: pd.DataFrame,
+    /,
+    *,
+    use_legacy_names=False,
+) -> pd.DataFrame:
+    dtypes = _get_dtypes()
+    features = _FEATURES
+    name = 'name'
+    if use_legacy_names:
+        features = [_LEGACY_NAME_MAP.get(f, f) for f in features]
+        dtypes = {_LEGACY_NAME_MAP.get(k, k): v for k, v in dtypes.items()}
+        name = _LEGACY_NAME_MAP['name']
+
+    df = df.copy()
+    df.columns = df.columns.map(_split)
+    result = (
+        df.stack()
+        .reset_index(0, drop=True)
+        .rename_axis(columns=name)
+        .T.reset_index()
+    )
+    if use_legacy_names:
+        result = result[list(_LEGACY_NAME_MAP.values())]
+
+    result = result.astype(dtypes)
 
     return result
